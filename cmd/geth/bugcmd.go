@@ -29,11 +29,12 @@ import (
 	"github.com/ubiq/go-ubiq/cmd/internal/browser"
 	"github.com/ubiq/go-ubiq/params"
 
+	"github.com/ethereum/go-ethereum/cmd/utils"
 	cli "gopkg.in/urfave/cli.v1"
 )
 
 var bugCommand = cli.Command{
-	Action:    reportBug,
+	Action:    utils.MigrateFlags(reportBug),
 	Name:      "bug",
 	Usage:     "opens a window to report a bug on the geth repo",
 	ArgsUsage: " ",

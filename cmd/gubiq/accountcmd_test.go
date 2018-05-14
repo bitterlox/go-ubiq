@@ -43,13 +43,13 @@ func tmpDatadirWithKeystore(t *testing.T) string {
 }
 
 func TestAccountListEmpty(t *testing.T) {
-	gubiq := runGubiq(t, "account")
+	gubiq := runGeth(t, "account", "list")
 	gubiq.expectExit()
 }
 
 func TestAccountList(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
-	gubiq := runGubiq(t, "--datadir", datadir, "account")
+	gubiq := runGeth(t, "account", "list", "--datadir", datadir)
 	defer gubiq.expectExit()
 	if runtime.GOOS == "windows" {
 		gubiq.expect(`
@@ -67,7 +67,7 @@ Account #2: {289d485d9771714cce91d3393d764e1311907acc} keystore://{{.Datadir}}/k
 }
 
 func TestAccountNew(t *testing.T) {
-	gubiq := runGubiq(t, "--lightkdf", "account", "new")
+	gubiq := runGubiq(t, "account", "new", "--lightkdf")
 	defer gubiq.expectExit()
 	gubiq.expect(`
 Your new account is locked with a password. Please give a password. Do not forget this password.
@@ -79,7 +79,7 @@ Repeat passphrase: {{.InputLine "foobar"}}
 }
 
 func TestAccountNewBadRepeat(t *testing.T) {
-	gubiq := runGubiq(t, "--lightkdf", "account", "new")
+	gubiq := runGubiq(t, "account", "new", "--lightkdf")
 	defer gubiq.expectExit()
 	gubiq.expect(`
 Your new account is locked with a password. Please give a password. Do not forget this password.
@@ -92,9 +92,9 @@ Fatal: Passphrases do not match
 
 func TestAccountUpdate(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
-	gubiq := runGubiq(t,
+	gubiq := runGubiq(t, "account", "update",
 		"--datadir", datadir, "--lightkdf",
-		"account", "update", "f466859ead1932d743d622cb74fc058882e8648a")
+		"f466859ead1932d743d622cb74fc058882e8648a")
 	defer gubiq.expectExit()
 	gubiq.expect(`
 Unlocking account f466859ead1932d743d622cb74fc058882e8648a | Attempt 1/3
@@ -107,7 +107,7 @@ Repeat passphrase: {{.InputLine "foobar2"}}
 }
 
 func TestWalletImport(t *testing.T) {
-	gubiq := runGubiq(t, "--lightkdf", "wallet", "import", "testdata/guswallet.json")
+	gubiq := runGubiq(t, "wallet", "import", "--lightkdf", "testdata/guswallet.json")
 	defer gubiq.expectExit()
 	gubiq.expect(`
 !! Unsupported terminal, password will be echoed.
@@ -122,7 +122,7 @@ Address: {d4584b5f6229b7be90727b0fc8c6b91bb427821f}
 }
 
 func TestWalletImportBadPassword(t *testing.T) {
-	gubiq := runGubiq(t, "--lightkdf", "wallet", "import", "testdata/guswallet.json")
+	gubiq := runGubiq(t, "wallet", "import", "--lightkdf", "testdata/guswallet.json")
 	defer gubiq.expectExit()
 	gubiq.expect(`
 !! Unsupported terminal, password will be echoed.

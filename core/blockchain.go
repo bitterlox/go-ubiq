@@ -662,7 +662,6 @@ type WriteStatus byte
 const (
 	NonStatTy WriteStatus = iota
 	CanonStatTy
-	SplitStatTy
 	SideStatTy
 )
 
@@ -1063,9 +1062,6 @@ func (self *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})
-
-		case SplitStatTy:
-			events = append(events, ChainSplitEvent{block, logs})
 		}
 		stats.processed++
 		stats.usedGas += usedGas.Uint64()
@@ -1260,8 +1256,9 @@ func (self *BlockChain) postChainEvents(events []interface{}, logs []*types.Log)
 	self.eventMux.Post(logs)
 	for _, event := range events {
 		if event, ok := event.(ChainEvent); ok {
-			// We need some control over the mining operation. Acquiring locks and waiting for the miner to create new block takes too long
-			// and in most cases isn't even necessary.
+			// We need some control over the mining operation. Acquiring locks and waiting
+			// for the miner to create new block takes too long and in most cases isn't
+			// even necessary.
 			if self.LastBlockHash() == event.Hash {
 				self.eventMux.Post(ChainHeadEvent{event.Block})
 			}
