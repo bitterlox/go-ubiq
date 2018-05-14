@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/ethash"
+
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/consensus/ethash"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
-	"github.com/ubiq/go-ubiq/crypto"
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/rlp"
 )
@@ -146,15 +146,15 @@ func runBlockTests(homesteadBlock, gasPriceFork *big.Int, bt map[string]*BlockTe
 	}
 
 	for name, test := range bt {
-		if skipTest[name] {
-			glog.Infoln("Skipping block test", name)
+		if skipTest[name] /*|| name != "CallingCanonicalContractFromFork_CALLCODE"*/ {
+			log.Info(fmt.Sprint("Skipping block test", name))
 			continue
 		}
 		// test the block
 		if err := runBlockTest(homesteadBlock, gasPriceFork, test); err != nil {
 			return fmt.Errorf("%s: %v", name, err)
 		}
-		glog.Infoln("Block test passed: ", name)
+		log.Info(fmt.Sprint("Block test passed: ", name))
 
 	}
 	return nil
@@ -177,6 +177,7 @@ func runBlockTest(homesteadBlock, gasPriceFork *big.Int, test *BlockTest) error 
 	if err != nil {
 		return err
 	}
+	defer chain.Stop()
 
 	//vm.Debug = true
 	validBlocks, err := test.TryBlocksInsert(chain)
@@ -221,10 +222,12 @@ func (t *BlockTest) InsertPreState(db ethdb.Database) (*state.StateDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		obj := statedb.CreateAccount(common.HexToAddress(addrString))
-		obj.SetCode(crypto.Keccak256Hash(code), code)
-		obj.SetBalance(balance)
-		obj.SetNonce(nonce)
+
+		addr := common.HexToAddress(addrString)
+		statedb.CreateAccount(addr)
+		statedb.SetCode(addr, code)
+		statedb.SetBalance(addr, balance)
+		statedb.SetNonce(addr, nonce)
 		for k, v := range acct.Storage {
 			statedb.SetState(common.HexToAddress(addrString), common.HexToHash(k), common.HexToHash(v))
 		}

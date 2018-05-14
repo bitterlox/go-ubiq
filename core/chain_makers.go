@@ -21,36 +21,14 @@ import (
 	"math/big"
 
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/consensus/ethash"
 	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/params"
-	"github.com/ubiq/go-ubiq/pow"
 )
-
-/*
- * TODO: move this to another package.
- */
-
-// MakeChainConfig returns a new ChainConfig with the ethereum default chain settings.
-func MakeChainConfig() *params.ChainConfig {
-	return &params.ChainConfig{
-		HomesteadBlock: big.NewInt(0),
-	}
-}
-
-// FakePow is a non-validating proof of work implementation.
-// It returns true from Verify for any block.
-type FakePow struct{}
-
-func (f FakePow) Search(block pow.Block, stop <-chan struct{}, index int) (uint64, []byte) {
-	return 0, nil
-}
-func (f FakePow) Verify(block pow.Block) bool { return true }
-func (f FakePow) GetHashrate() int64          { return 0 }
-func (f FakePow) Turbo(bool)                  {}
 
 // So we can deterministically seed different blockchains
 var (
@@ -106,7 +84,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 		b.SetCoinbase(common.Address{})
 	}
 	b.statedb.StartRecord(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, _, err := ApplyTransaction(b.config, nil, b.gasPool, b.statedb, b.header, tx, b.header.GasUsed, vm.Config{})
+	receipt, _, err := ApplyTransaction(b.config, nil, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
@@ -179,10 +157,12 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
 func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
+	if config == nil {
+		config = params.TestChainConfig
+	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	genblock := func(i int, h *types.Header, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{parent: parent, i: i, chain: blocks, header: h, statedb: statedb, config: config}
-
 		// Mutate the state and block according to any hard-fork specs
 		if config == nil {
 			config = MakeChainConfig()
@@ -191,7 +171,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 		if gen != nil {
 			gen(i, b)
 		}
-		AccumulateRewards(statedb, h, b.uncles)
+		ethash.AccumulateRewards(statedb, h, b.uncles)
 		root, err := statedb.Commit(config.IsEIP158(h.Number))
 		if err != nil {
 			panic(fmt.Sprintf("state write error: %v", err))
@@ -236,14 +216,12 @@ func makeHeader(config *params.ChainConfig, parent *types.Block, state *state.St
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
 func newCanonical(n int, full bool) (ethdb.Database, *BlockChain, error) {
-	// Create the new chain database
-	db, _ := ethdb.NewMemDatabase()
-	evmux := &event.TypeMux{}
-
 	// Initialize a fresh chain with only a genesis block
-	genesis, _ := WriteTestNetGenesisBlock(db)
+	gspec := new(Genesis)
+	db, _ := ethdb.NewMemDatabase()
+	genesis := gspec.MustCommit(db)
 
-	blockchain, _ := NewBlockChain(db, MakeChainConfig(), FakePow{}, evmux, vm.Config{})
+	blockchain, _ := NewBlockChain(db, params.AllProtocolChanges, ethash.NewFaker(), new(event.TypeMux), vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil

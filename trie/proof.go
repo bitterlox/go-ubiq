@@ -23,8 +23,7 @@ import (
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/crypto/sha3"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/rlp"
 )
 
@@ -61,9 +60,7 @@ func (t *Trie) Prove(key []byte) []rlp.RawValue {
 			var err error
 			tn, err = t.resolveHash(n, nil, nil)
 			if err != nil {
-				if glog.V(logger.Error) {
-					glog.Errorf("Unhandled trie error: %v", err)
-				}
+				log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 				return nil
 			}
 		default:

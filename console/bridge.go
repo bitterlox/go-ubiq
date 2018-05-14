@@ -22,8 +22,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/rpc"
 	"github.com/robertkrimen/otto"
 )
@@ -306,7 +305,7 @@ func setError(resp *otto.Object, code int, msg string) {
 func throwJSException(msg interface{}) otto.Value {
 	val, err := otto.ToValue(msg)
 	if err != nil {
-		glog.V(logger.Error).Infof("Failed to serialize JavaScript exception %v: %v", msg, err)
+		log.Error("Failed to serialize JavaScript exception", "exception", msg, "err", err)
 	}
 	panic(val)
 }
