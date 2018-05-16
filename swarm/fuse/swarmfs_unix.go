@@ -19,18 +19,19 @@
 package fuse
 
 import (
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
 	"errors"
 	"fmt"
-	"github.com/ubiq/go-ubiq/common"
-	"github.com/ubiq/go-ubiq/log"
-	"github.com/ubiq/go-ubiq/swarm/api"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
+	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/log"
+	"github.com/ubiq/go-ubiq/swarm/api"
 )
 
 var (
@@ -203,7 +204,7 @@ func (self *SwarmFS) Unmount(mountpoint string) (*MountInfo, error) {
 	}
 	err = fuse.Unmount(cleanedMountPoint)
 	if err != nil {
-		err1 := externalUnMount(cleanedMountPoint)
+		err1 := externalUnmount(cleanedMountPoint)
 		if err1 != nil {
 			errStr := fmt.Sprintf("UnMount error: %v", err)
 			log.Warn(errStr)

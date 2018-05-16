@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: gubiq android ios gubiq-cross evm all test clean
+.PHONY: gubiq android ios gubiq-cross swarm evm all test clean
 .PHONY: gubiq-linux gubiq-linux-386 gubiq-linux-amd64 gubiq-linux-mips64 gubiq-linux-mips64le
 .PHONY: gubiq-linux-arm gubiq-linux-arm-5 gubiq-linux-arm-6 gubiq-linux-arm-7 gubiq-linux-arm64
 .PHONY: gubiq-darwin gubiq-darwin-386 gubiq-darwin-amd64
@@ -15,6 +15,11 @@ gubiq:
 	build/env.sh go run build/ci.go install ./cmd/gubiq
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/gubiq\" to launch gubiq."
+
+swarm:
+	build/env.sh go run build/ci.go install ./cmd/swarm
+	@echo "Done building."
+	@echo "Run \"$(GOBIN)/swarm\" to launch swarm."
 
 evm:
 	build/env.sh go run build/ci.go install ./cmd/evm

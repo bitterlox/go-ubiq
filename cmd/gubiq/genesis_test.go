@@ -95,7 +95,7 @@ func TestCustomGenesis(t *testing.T) {
 		if err := ioutil.WriteFile(json, []byte(tt.genesis), 0600); err != nil {
 			t.Fatalf("test %d: failed to write genesis file: %v", i, err)
 		}
-		runGubiq(t, "--datadir", datadir, "init", json).cmd.Wait()
+		runGubiq(t, "--datadir", datadir, "init", json).WaitExit()
 
 		// Query the custom genesis block
 		gubiq := runGubiq(t,

@@ -94,7 +94,7 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 	if bc.genesisBlock == nil {
 		return nil, core.ErrNoGenesis
 	}
-	if bc.genesisBlock.Hash() == params.MainNetGenesisHash {
+	if bc.genesisBlock.Hash() == params.MainnetGenesisHash {
 		// add trusted CHT
 		WriteTrustedCht(bc.chainDb, TrustedCht{Number: 523, Root: common.HexToHash("c035076523faf514038f619715de404a65398c51899b5dccca9c05b00bc79315")})
 		log.Info("Added trusted CHT for mainnet")
@@ -178,11 +178,6 @@ func (self *LightChain) Status() (td *big.Int, currentBlock common.Hash, genesis
 	header := self.hc.CurrentHeader()
 	hash := header.Hash()
 	return self.GetTd(hash, header.Number.Uint64()), hash, self.genesisBlock.Hash()
-}
-
-// State returns a new mutable state based on the current HEAD block.
-func (self *LightChain) State() *LightState {
-	return NewLightState(StateTrieID(self.hc.CurrentHeader()), self.odr)
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.

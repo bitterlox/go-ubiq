@@ -45,13 +45,16 @@ var (
 	// paths with any of these prefixes will be skipped
 	skipPrefixes = []string{
 		// boring stuff
-		"vendor/", "tests/files/", "build/",
+		"vendor/", "tests/testdata/", "build/",
 		// don't relicense vendored sources
-		"crypto/sha3/", "crypto/ecies/", "log/",
-		"crypto/secp256k1/curve.go",
-		"consensus/ethash/xor.go",
-		"internal/jsre/deps",
 		"cmd/internal/browser",
+		"consensus/ethash/xor.go",
+		"crypto/bn256/",
+		"crypto/ecies/",
+		"crypto/secp256k1/curve.go",
+		"crypto/sha3/",
+		"internal/jsre/deps",
+		"log/",
 		// don't license generated files
 		"contracts/chequebook/contract/",
 		"contracts/ens/contract/",

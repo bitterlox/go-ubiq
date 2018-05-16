@@ -47,15 +47,15 @@ func TestConsoleWelcome(t *testing.T) {
 		"console")
 
 	// Gather all the infos the welcome message needs to contain
-	gubiq.setTemplateFunc("goos", func() string { return runtime.GOOS })
-	gubiq.setTemplateFunc("goarch", func() string { return runtime.GOARCH })
-	gubiq.setTemplateFunc("gover", runtime.Version)
-	gubiq.setTemplateFunc("gubiqver", func() string { return utils.Version })
-	gubiq.setTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
-	gubiq.setTemplateFunc("apis", func() string { return ipcAPIs })
+	gubiq.SetTemplateFunc("goos", func() string { return runtime.GOOS })
+	gubiq.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
+	gubiq.SetTemplateFunc("gover", runtime.Version)
+	gubiq.SetTemplateFunc("gubiqver", func() string { return utils.Version })
+	gubiq.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	gubiq.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
 	// Verify the actual welcome message to the required template
-	gubiq.expect(`
+	gubiq.Expect(`
 Welcome to the Gubiq JavaScript console!
 
 instance: Gubiq/v{{gubiqver}}/{{goos}}--{{goarch}}/{{gover}}
@@ -66,7 +66,7 @@ at block: 0 ({{niltime}})
 
 > {{.InputLine "exit"}}
 `)
-	gubiq.expectExit()
+	gubiq.ExpectExit()
 }
 
 // Tests that a console can be attached to a running node via various means.
@@ -90,8 +90,8 @@ func TestIPCAttachWelcome(t *testing.T) {
 	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
 	testAttachWelcome(t, gubiq, "ipc:"+ipc, ipcAPIs)
 
-	gubiq.interrupt()
-	gubiq.expectExit()
+	gubiq.Interrupt()
+	gubiq.ExpectExit()
 }
 
 func TestHTTPAttachWelcome(t *testing.T) {
@@ -104,8 +104,8 @@ func TestHTTPAttachWelcome(t *testing.T) {
 	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
 	testAttachWelcome(t, gubiq, "http://localhost:"+port, httpAPIs)
 
-	gubiq.interrupt()
-	gubiq.expectExit()
+	gubiq.Interrupt()
+	gubiq.ExpectExit()
 }
 
 func TestWSAttachWelcome(t *testing.T) {
@@ -119,29 +119,29 @@ func TestWSAttachWelcome(t *testing.T) {
 	time.Sleep(2 * time.Second) // Simple way to wait for the RPC endpoint to open
 	testAttachWelcome(t, gubiq, "ws://localhost:"+port, httpAPIs)
 
-	gubiq.interrupt()
-	gubiq.expectExit()
+	gubiq.Interrupt()
+	gubiq.ExpectExit()
 }
 
 func testAttachWelcome(t *testing.T, gubiq *testgubiq, endpoint, apis string) {
 	// Attach to a running gubiq note and terminate immediately
 	attach := runGubiq(t, "attach", endpoint)
-	defer attach.expectExit()
+	defer attach.ExpectExit()
 	attach.stdin.Close()
 
 	// Gather all the infos the welcome message needs to contain
-	attach.setTemplateFunc("goos", func() string { return runtime.GOOS })
-	attach.setTemplateFunc("goarch", func() string { return runtime.GOARCH })
-	attach.setTemplateFunc("gover", runtime.Version)
-	attach.setTemplateFunc("gubiqver", func() string { return utils.Version })
-	attach.setTemplateFunc("etherbase", func() string { return gubiq.Etherbase })
-	attach.setTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
-	attach.setTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })
-	attach.setTemplateFunc("datadir", func() string { return geth.Datadir })
-	attach.setTemplateFunc("apis", func() string { return apis })
+	attach.SetTemplateFunc("goos", func() string { return runtime.GOOS })
+	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
+	attach.SetTemplateFunc("gover", runtime.Version)
+	attach.SetTemplateFunc("gubiqver", func() string { return utils.Version })
+	attach.SetTemplateFunc("etherbase", func() string { return gubiq.Etherbase })
+	attach.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format(time.RFC1123) })
+	attach.SetTemplateFunc("ipc", func() bool { return strings.HasPrefix(endpoint, "ipc") })
+	attach.SetTemplateFunc("datadir", func() string { return geth.Datadir })
+	attach.SetTemplateFunc("apis", func() string { return apis })
 
 	// Verify the actual welcome message to the required template
-	attach.expect(`
+	attach.Expect(`
 Welcome to the Gubiq JavaScript console!
 
 instance: Gubiq/v{{gubiqver}}/{{goos}}--{{goarch}}/{{gover}}
@@ -152,7 +152,7 @@ at block: 0 ({{niltime}}){{if ipc}}
 
 > {{.InputLine "exit" }}
 `)
-	attach.expectExit()
+	attach.ExpectExit()
 }
 
 // trulyRandInt generates a crypto random integer used by the console tests to

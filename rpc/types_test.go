@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ubiq/go-ubiq/common/math"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {

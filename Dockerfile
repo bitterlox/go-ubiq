@@ -1,5 +1,5 @@
 # Use Alpine Linux
-FROM golang:1.9-alpine as builder 
+FROM golang:1.9-alpine as builder
 
 # Install basic dependencies
 RUN apk update
