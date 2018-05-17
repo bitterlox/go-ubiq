@@ -447,7 +447,7 @@ func (api *PrivateDebugAPI) traceBlock(block *types.Block, logConfig *vm.LogConf
 		Debug:  true,
 		Tracer: structLogger,
 	}
-	if err := api.eth.engine.VerifyHeader(blockchain, block.Header(), true); err != nil {
+	if err := api.eth.engine.VerifyHeader(blockchain, blockchain.Genesis(), block.Header(), true); err != nil {
 		return false, structLogger.StructLogs(), err
 	}
 	statedb, err := blockchain.StateAt(blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1).Root())

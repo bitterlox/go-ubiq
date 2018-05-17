@@ -140,13 +140,13 @@ func NewBlockChain(chainDb ethdb.Database, config *params.ChainConfig, engine co
 	bc.SetProcessor(NewStateProcessor(config, bc, engine))
 
 	var err error
-	bc.hc, err = NewHeaderChain(chainDb, config, engine, bc.getProcInterrupt)
-	if err != nil {
-		return nil, err
-	}
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
+	}
+	bc.hc, err = NewHeaderChain(chainDb, config, engine, bc.genesisBlock, bc.getProcInterrupt)
+	if err != nil {
+		return nil, err
 	}
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
@@ -902,7 +902,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	abort, results := bc.engine.VerifyHeaders(bc, bc.genesisBlock, headers, seals)
 	defer close(abort)
 
 	// Iterate over the blocks and insert when the verifier permits
@@ -1383,10 +1383,10 @@ func (bc *BlockChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []com
 	return bc.hc.GetBlockHashesFromHash(hash, max)
 }
 
-func (self *BlockChain) GetBlockHeadersFromHash(hash common.Hash, n int) (blockHeaders []*types.Header) {
-	number := self.hc.GetBlockNumber(hash)
-	for i := 0; i < n; i++ {
-		blockHeader := self.GetHeader(hash, number)
+func (bc *BlockChain) GetBlockHeadersFromHash(hash common.Hash, n uint64) (blockHeaders []*types.Header) {
+	number := bc.hc.GetBlockNumber(hash)
+	for i := uint64(0); i < n; i++ {
+		blockHeader := bc.GetHeader(hash, number)
 		if blockHeader == nil {
 			break
 		}

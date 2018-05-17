@@ -28,8 +28,6 @@ import (
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/params"
-	"github.com/ubiq/go-ubiq/consensus"
-	"github.com/ubiq/go-ubiq-aldo/core"
 )
 
 // So we can deterministically seed different blockchains
@@ -144,7 +142,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = ethash.CalcDifficulty(b.bc, b.header.Time.Uint64(), b.parent.Header())
+	b.header.Difficulty = ethash.CalcDifficulty(b.bc, b.bc.genesisBlock, b.header.Time.Uint64(), b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -159,7 +157,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
+func GenerateChain(b *BlockChain, config *params.ChainConfig, parent *types.Block, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
@@ -183,7 +181,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 		if err != nil {
 			panic(err)
 		}
-		header := makeHeader(config, parent, statedb)
+		header := makeHeader(b, config, parent, statedb)
 		block, receipt := genblock(i, header, statedb)
 		blocks[i] = block
 		receipts[i] = receipt
@@ -192,7 +190,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 	return blocks, receipts
 }
 
-func makeHeader(config *params.ChainConfig, parent *types.Block, state *state.StateDB, ch consensus.ChainReader) *types.Header {
+func makeHeader(b *BlockChain, config *params.ChainConfig, parent *types.Block, state *state.StateDB) *types.Header {
 	var time *big.Int
 	if parent.Time() == nil {
 		time = big.NewInt(10)
@@ -204,7 +202,7 @@ func makeHeader(config *params.ChainConfig, parent *types.Block, state *state.St
 		Root:       state.IntermediateRoot(config.IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: ethash.CalcDifficulty(ch, time.Uint64(), &types.Header{
+		Difficulty: ethash.CalcDifficulty(b, b.genesisBlock, time.Uint64(), &types.Header{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.Difficulty(),
@@ -232,19 +230,19 @@ func newCanonical(n int, full bool) (ethdb.Database, *BlockChain, error) {
 	}
 	if full {
 		// Full block-chain requested
-		blocks := makeBlockChain(genesis, n, db, canonicalSeed)
+		blocks := makeBlockChain(blockchain, genesis, n, db, canonicalSeed)
 		_, err := blockchain.InsertChain(blocks)
 		return db, blockchain, err
 	}
 	// Header-only chain requested
-	headers := makeHeaderChain(genesis.Header(), n, db, canonicalSeed)
+	headers := makeHeaderChain(blockchain, genesis.Header(), n, db, canonicalSeed)
 	_, err := blockchain.InsertHeaderChain(headers, 1)
 	return db, blockchain, err
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) []*types.Header {
-	blocks := makeBlockChain(types.NewBlockWithHeader(parent), n, db, seed)
+func makeHeaderChain(b *BlockChain, parent *types.Header, n int, db ethdb.Database, seed int) []*types.Header {
+	blocks := makeBlockChain(b, types.NewBlockWithHeader(parent), n, db, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
@@ -253,8 +251,8 @@ func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) [
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *types.Block, n int, db ethdb.Database, seed int) []*types.Block {
-	blocks, _ := GenerateChain(params.TestChainConfig, parent, db, n, func(i int, b *BlockGen) {
+func makeBlockChain(b *BlockChain, parent *types.Block, n int, db ethdb.Database, seed int) []*types.Block {
+	blocks, _ := GenerateChain(b, params.TestChainConfig, parent, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	return blocks

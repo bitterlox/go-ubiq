@@ -147,11 +147,12 @@ func MaxActualTimespanFlux(dampen bool) *big.Int {
 }
 
 // CalcPastMedianTime
-func CalcPastMedianTime(ch consensus.ChainReader, number uint64) *big.Int {
-	medianTimeBlocks := 11
+func CalcPastMedianTime(ch consensus.ChainReader, genesisBlock *types.Block, number uint64) *big.Int {
+	var medianTimeBlocks uint64 = 11
+
 	// Genesis block.
 	if number == 0 {
-		return ch.Genesis().Time()
+		return genesisBlock.Time()
 	}
 
 	timestamps := make([]*big.Int, medianTimeBlocks)
@@ -206,7 +207,7 @@ func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, genesisBlock *types.Block, header *types.Header, seal bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull {
 		return nil
@@ -221,13 +222,13 @@ func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, header *types.He
 		return consensus.ErrUnknownAncestor
 	}
 	// Sanity checks passed, do a proper verification
-	return ethash.verifyHeader(chain, header, parent, false, seal)
+	return ethash.verifyHeader(chain, genesisBlock, header, parent, false, seal)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
-func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, genesisBlock *types.Block, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -253,7 +254,7 @@ func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*type
 	for i := 0; i < workers; i++ {
 		go func() {
 			for index := range inputs {
-				errors[index] = ethash.verifyHeaderWorker(chain, headers, seals, index)
+				errors[index] = ethash.verifyHeaderWorker(chain, genesisBlock, headers, seals, index)
 				done <- index
 			}
 		}()
@@ -289,7 +290,7 @@ func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*type
 	return abort, errorsOut
 }
 
-func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
+func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, genesisBlock *types.Block, headers []*types.Header, seals []bool, index int) error {
 	var parent *types.Header
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
@@ -302,12 +303,12 @@ func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
 		return nil // known block
 	}
-	return ethash.verifyHeader(chain, headers[index], parent, false, seals[index])
+	return ethash.verifyHeader(chain, genesisBlock, headers[index], parent, false, seals[index])
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum ethash engine.
-func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, genesisBlock *types.Block, block *types.Block) error {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull {
 		return nil
@@ -350,7 +351,7 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 		if ancestors[uncle.ParentHash] == nil || uncle.ParentHash == block.ParentHash() {
 			return errDanglingUncle
 		}
-		if err := ethash.verifyHeader(chain, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
+		if err := ethash.verifyHeader(chain, genesisBlock, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
 			return err
 		}
 	}
@@ -360,7 +361,7 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // verifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
-func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool) error {
+func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, genesisBlock *types.Block, header, parent *types.Header, uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -379,7 +380,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 		return errZeroBlockTime
 	}
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
-	expected := CalcDifficulty(chain, header.Time.Uint64(), parent)
+	expected := CalcDifficulty(chain, genesisBlock, header.Time.Uint64(), parent)
 	if expected.Cmp(header.Difficulty) != 0 {
 		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 	}
@@ -419,23 +420,23 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	return nil
 }
 
-func CalcDifficulty(ch consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+func CalcDifficulty(ch consensus.ChainReader, genesisBlock *types.Block, time uint64, parent *types.Header) *big.Int {
 	if parent.Number.Cmp(diffChangeBlock) < 0 {
-		return CalcDifficultyOrig(ch, parent.Number, parent.Difficulty)
+		return CalcDifficultyOrig(ch, genesisBlock, parent.Number, parent.Difficulty)
 	}
 
 	if parent.Number.Cmp(fluxChangeBlock) < 0 {
-		return CalcDifficulty2(ch, parent.Number, parent.Difficulty)
+		return CalcDifficulty2(ch, genesisBlock, parent.Number, parent.Difficulty)
 	}
 
-	return FluxDifficulty(ch, time, parent.Time.Uint64(), parent.Number, parent.Difficulty)
+	return FluxDifficulty(ch, genesisBlock, time, parent.Time.Uint64(), parent.Number, parent.Difficulty)
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 // Rewritten to be based on Digibyte's Digishield v3 retargeting
-func CalcDifficultyOrig(ch consensus.ChainReader, parentNumber, parentDiff *big.Int) *big.Int {
+func CalcDifficultyOrig(ch consensus.ChainReader, genesisBlock *types.Block, parentNumber, parentDiff *big.Int) *big.Int {
 	// holds intermediate values to make the algo easier to read & audit
 	x := new(big.Int)
 	nFirstBlock := new(big.Int)
@@ -453,8 +454,8 @@ func CalcDifficultyOrig(ch consensus.ChainReader, parentNumber, parentDiff *big.
 	// Limit adjustment step
 	// Use medians to prevent time-warp attacks
 	// nActualTimespan := nLastBlockTime - nFirstBlockTime
-	nLastBlockTime := CalcPastMedianTime(ch, parentNumber.Uint64())
-	nFirstBlockTime := CalcPastMedianTime(ch, nFirstBlock.Uint64())
+	nLastBlockTime := CalcPastMedianTime(ch, genesisBlock, parentNumber.Uint64())
+	nFirstBlockTime := CalcPastMedianTime(ch, genesisBlock, nFirstBlock.Uint64())
 	nActualTimespan := new(big.Int)
 	nActualTimespan.Sub(nLastBlockTime, nFirstBlockTime)
 	log.Debug(fmt.Sprintf("CalcDifficulty nActualTimespan = %v before dampening\n", nActualTimespan))
@@ -491,15 +492,15 @@ func CalcDifficultyOrig(ch consensus.ChainReader, parentNumber, parentDiff *big.
 	return x
 }
 
-func CalcDifficulty2(ch consensus.ChainReader, parentNumber, parentDiff *big.Int) *big.Int {
+func CalcDifficulty2(ch consensus.ChainReader, genesisBlock *types.Block, parentNumber, parentDiff *big.Int) *big.Int {
 	x := new(big.Int)
 	nFirstBlock := new(big.Int)
 	nFirstBlock.Sub(parentNumber, nPowAveragingWindow88)
 
 	log.Debug(fmt.Sprintf("CalcDifficulty2 parentNumber: %v parentDiff: %v\n", parentNumber, parentDiff))
 
-	nLastBlockTime := CalcPastMedianTime(ch, parentNumber.Uint64())
-	nFirstBlockTime := CalcPastMedianTime(ch, nFirstBlock.Uint64())
+	nLastBlockTime := CalcPastMedianTime(ch, genesisBlock, parentNumber.Uint64())
+	nFirstBlockTime := CalcPastMedianTime(ch, genesisBlock, nFirstBlock.Uint64())
 	nActualTimespan := new(big.Int)
 	nActualTimespan.Sub(nLastBlockTime, nFirstBlockTime)
 
@@ -525,7 +526,7 @@ func CalcDifficulty2(ch consensus.ChainReader, parentNumber, parentDiff *big.Int
 	return x
 }
 
-func FluxDifficulty(ch consensus.ChainReader, time, parentTime uint64, parentNumber, parentDiff *big.Int) *big.Int {
+func FluxDifficulty(ch consensus.ChainReader, genesisBlock *types.Block, time, parentTime uint64, parentNumber, parentDiff *big.Int) *big.Int {
 	x := new(big.Int)
 	nFirstBlock := new(big.Int)
 	nFirstBlock.Sub(parentNumber, nPowAveragingWindow88)
@@ -533,8 +534,8 @@ func FluxDifficulty(ch consensus.ChainReader, time, parentTime uint64, parentNum
 	diffTime := new(big.Int)
 	diffTime.Sub(big.NewInt(int64(time)), big.NewInt(int64(parentTime)))
 
-	nLastBlockTime := CalcPastMedianTime(ch, parentNumber.Uint64())
-	nFirstBlockTime := CalcPastMedianTime(ch, nFirstBlock.Uint64())
+	nLastBlockTime := CalcPastMedianTime(ch, genesisBlock, parentNumber.Uint64())
+	nFirstBlockTime := CalcPastMedianTime(ch, genesisBlock, nFirstBlock.Uint64())
 	nActualTimespan := new(big.Int)
 	nActualTimespan.Sub(nLastBlockTime, nFirstBlockTime)
 
@@ -617,12 +618,12 @@ func (ethash *Ethash) VerifySeal(chain consensus.ChainReader, header *types.Head
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header) error {
+func (ethash *Ethash) Prepare(chain consensus.ChainReader, genesisBlock *types.Block, header *types.Header) error {
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = CalcDifficulty(chain, header.Time.Uint64(), parent)
+	header.Difficulty = CalcDifficulty(chain, genesisBlock, header.Time.Uint64(), parent)
 
 	return nil
 }

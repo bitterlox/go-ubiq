@@ -311,12 +311,12 @@ func testBrokenChain(t *testing.T, full bool) {
 	}
 	// Create a forked chain, and try to insert with a missing link
 	if full {
-		chain := makeBlockChain(blockchain.CurrentBlock(), 5, db, forkSeed)[1:]
+		chain := makeBlockChain(blockchain, blockchain.CurrentBlock(), 5, db, forkSeed)[1:]
 		if err := testBlockChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken block chain not reported")
 		}
 	} else {
-		chain := makeHeaderChain(blockchain.CurrentHeader(), 5, db, forkSeed)[1:]
+		chain := makeHeaderChain(blockchain, blockchain.CurrentHeader(), 5, db, forkSeed)[1:]
 		if err := testHeaderChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken header chain not reported")
 		}
@@ -515,7 +515,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			failNum uint64
 		)
 		if full {
-			blocks := makeBlockChain(blockchain.CurrentBlock(), i, db, 0)
+			blocks := makeBlockChain(blockchain, blockchain.CurrentBlock(), i, db, 0)
 
 			failAt = rand.Int() % len(blocks)
 			failNum = blocks[failAt].NumberU64()
@@ -523,7 +523,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			blockchain.engine = ethash.NewFakeFailer(failNum)
 			failRes, err = blockchain.InsertChain(blocks)
 		} else {
-			headers := makeHeaderChain(blockchain.CurrentHeader(), i, db, 0)
+			headers := makeHeaderChain(blockchain, blockchain.CurrentHeader(), i, db, 0)
 
 			failAt = rand.Int() % len(headers)
 			failNum = headers[failAt].Number.Uint64()

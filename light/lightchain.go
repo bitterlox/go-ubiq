@@ -86,13 +86,13 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 		engine:       engine,
 	}
 	var err error
-	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
-	if err != nil {
-		return nil, err
-	}
 	bc.genesisBlock, _ = bc.GetBlockByNumber(NoOdr, 0)
 	if bc.genesisBlock == nil {
 		return nil, core.ErrNoGenesis
+	}
+	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.genesisBlock, bc.getProcInterrupt)
+	if err != nil {
+		return nil, err
 	}
 	if bc.genesisBlock.Hash() == params.MainnetGenesisHash {
 		// add trusted CHT

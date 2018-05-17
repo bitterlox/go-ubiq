@@ -48,6 +48,8 @@ const (
 type HeaderChain struct {
 	config *params.ChainConfig
 
+	genesisBlock *types.Block
+
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
@@ -68,7 +70,7 @@ type HeaderChain struct {
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, genesisBlock *types.Block, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -88,6 +90,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
+		genesisBlock: genesisBlock,
 	}
 
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
@@ -225,7 +228,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 	}
 	seals[len(seals)-1] = true // Last should always be verified to avoid junk
 
-	abort, results := hc.engine.VerifyHeaders(hc, chain, seals)
+	abort, results := hc.engine.VerifyHeaders(hc, hc.genesisBlock, chain, seals)
 	defer close(abort)
 
 	// Iterate over the headers and ensure they all check out

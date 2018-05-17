@@ -44,10 +44,7 @@ type ChainReader interface {
 	GetHeaderByHash(hash common.Hash) *types.Header
 
 	//
-	GetBlockHeadersFromHash(hash common.Hash, medianTimeBlocks int) []*types.Header
-
-	// Config retrieves the blockchain's first block.
-	Genesis() *types.Block
+	GetBlockHeadersFromHash(hash common.Hash, medianTimeBlocks uint64) []*types.Header
 
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
@@ -63,17 +60,17 @@ type Engine interface {
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainReader, genesisBlock *types.Block, header *types.Header, seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
-	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+	VerifyHeaders(chain ChainReader, genesisBlock *types.Block, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
-	VerifyUncles(chain ChainReader, block *types.Block) error
+	VerifyUncles(chain ChainReader, genesisBlock *types.Block, block *types.Block) error
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
@@ -81,7 +78,7 @@ type Engine interface {
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	Prepare(chain ChainReader, header *types.Header) error
+	Prepare(chain ChainReader, genesisBlock *types.Block, header *types.Header) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
