@@ -323,10 +323,10 @@ func DefaultGenesisBlock() *Genesis {
 func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
+		Nonce:      273,
+		ExtraData:  hexutil.MustDecode("0x4a756d6275636b734545"),
+		GasLimit:   134217728,
+		Difficulty: big.NewInt(983040),
 		Alloc:      decodePrealloc(testnetAllocData),
 	}
 }
