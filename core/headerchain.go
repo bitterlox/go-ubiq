@@ -90,7 +90,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
-		genesisBlock: genesisBlock,
+		genesisBlock:  genesisBlock,
 	}
 
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
@@ -228,7 +228,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 	}
 	seals[len(seals)-1] = true // Last should always be verified to avoid junk
 
-	abort, results := hc.engine.VerifyHeaders(hc, hc.genesisBlock, chain, seals)
+	abort, results := hc.engine.VerifyHeaders(hc, chain, seals)
 	defer close(abort)
 
 	// Iterate over the headers and ensure they all check out
@@ -395,7 +395,9 @@ func (hc *HeaderChain) HasHeader(hash common.Hash) bool {
 // caching it (associated with its hash) if found.
 func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	hash := GetCanonicalHash(hc.chainDb, number)
+	log.Debug(fmt.Sprintf("GetHeaderByNumber / number: %x, hash: %+v", number, hash))
 	if hash == (common.Hash{}) {
+		log.Debug(fmt.Sprintf("GetHeaderByNumber / number: %x, return nil", number))
 		return nil
 	}
 	return hc.GetHeader(hash, number)

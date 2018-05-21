@@ -43,6 +43,7 @@ import (
 	"github.com/ubiq/go-ubiq/rlp"
 	"github.com/ubiq/go-ubiq/trie"
 	"github.com/hashicorp/golang-lru"
+	"sort"
 )
 
 var (
@@ -57,6 +58,7 @@ const (
 	maxFutureBlocks     = 256
 	maxTimeFutureBlocks = 30
 	badBlockLimit       = 10
+	medianTimeBlocks    = 11
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	BlockChainVersion = 3
@@ -622,7 +624,7 @@ func (bc *BlockChain) procFutureBlocks() {
 type WriteStatus byte
 
 const (
-	NonStatTy WriteStatus = iota
+	NonStatTy   WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )
@@ -902,7 +904,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	abort, results := bc.engine.VerifyHeaders(bc, bc.genesisBlock, headers, seals)
+	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 	defer close(abort)
 
 	// Iterate over the blocks and insert when the verifier permits
@@ -1401,6 +1403,40 @@ func (bc *BlockChain) GetBlockHeadersFromHash(hash common.Hash, n uint64) (block
 // caching it (associated with its hash) if found.
 func (bc *BlockChain) GetHeaderByNumber(number uint64) *types.Header {
 	return bc.hc.GetHeaderByNumber(number)
+}
+
+// calcPastMedianTime calculates the median time of the previous few blocks
+// prior to, and including, the passed block node.
+//
+// Modified from btcsuite
+func (bc *BlockChain) CalcPastMedianTime(number uint64) *big.Int {
+	fmt.Println("bc CalcPastMedianTime:", number)
+	// Genesis block.
+	if number == 0 {
+		return bc.Genesis().Time()
+	}
+
+	timestamps := make([]*big.Int, medianTimeBlocks)
+	numNodes := 0
+	iterNode := bc.GetHeaderByNumber(number)
+	fmt.Println("bc CalcPastMedianTime iterNode:", iterNode)
+
+	ancestors := make(map[common.Hash]*types.Header)
+	for i, ancestor := range bc.GetBlockHeadersFromHash(iterNode.Hash(), medianTimeBlocks) {
+		ancestors[ancestor.Hash()] = ancestor
+		timestamps[i] = ancestor.Time
+		numNodes++
+	}
+	fmt.Println("bc CalcPastMedianTime numNodes:", numNodes)
+
+	// Prune the slice to the actual number of available timestamps which
+	// will be fewer than desired near the beginning of the block chain
+	// and sort them.
+	timestamps = timestamps[:numNodes]
+	sort.Sort(BigIntSlice(timestamps))
+
+	medianTimestamp := timestamps[numNodes/2]
+	return medianTimestamp
 }
 
 // Config retrieves the blockchain's chain configuration.
