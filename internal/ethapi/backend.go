@@ -18,11 +18,13 @@
 package ethapi
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ubiq/go-ubiq/accounts"
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/core"
+	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
 	"github.com/ubiq/go-ubiq/eth/downloader"
@@ -30,7 +32,6 @@ import (
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/rpc"
-	"golang.org/x/net/context"
 )
 
 // Backend interface provides the common API services (that are provided by
@@ -47,11 +48,12 @@ type Backend interface {
 	SetHead(number uint64)
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
 	BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error)
-	StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (State, *types.Header, error)
+	StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error)
 	GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error)
 	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
 	GetTd(blockHash common.Hash) *big.Int
-	GetVMEnv(ctx context.Context, msg core.Message, state State, header *types.Header) (*vm.EVM, func() error, error)
+	GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error)
+
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
 	RemoveTx(txHash common.Hash)
@@ -65,16 +67,9 @@ type Backend interface {
 	CurrentBlock() *types.Block
 }
 
-type State interface {
-	GetBalance(ctx context.Context, addr common.Address) (*big.Int, error)
-	GetCode(ctx context.Context, addr common.Address) ([]byte, error)
-	GetState(ctx context.Context, a common.Address, b common.Hash) (common.Hash, error)
-	GetNonce(ctx context.Context, addr common.Address) (uint64, error)
-}
-
-func GetAPIs(apiBackend Backend, solcPath string) []rpc.API {
-	compiler := makeCompilerAPIs(solcPath)
-	all := []rpc.API{
+func GetAPIs(apiBackend Backend) []rpc.API {
+	nonceLock := new(AddrLocker)
+	return []rpc.API{
 		{
 			Namespace: "eth",
 			Version:   "1.0",
@@ -88,7 +83,7 @@ func GetAPIs(apiBackend Backend, solcPath string) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend),
+			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
 		}, {
 			Namespace: "txpool",
@@ -112,9 +107,8 @@ func GetAPIs(apiBackend Backend, solcPath string) []rpc.API {
 		}, {
 			Namespace: "personal",
 			Version:   "1.0",
-			Service:   NewPrivateAccountAPI(apiBackend),
+			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
 		},
 	}
-	return append(compiler, all...)
 }

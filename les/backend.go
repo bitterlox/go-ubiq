@@ -18,14 +18,14 @@
 package les
 
 import (
-	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ubiq/go-ubiq/accounts"
 	"github.com/ubiq/go-ubiq/common"
-	"github.com/ubiq/go-ubiq/common/compiler"
 	"github.com/ubiq/go-ubiq/common/hexutil"
+	"github.com/ubiq/go-ubiq/consensus"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/eth"
@@ -36,12 +36,11 @@ import (
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/internal/ethapi"
 	"github.com/ubiq/go-ubiq/light"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/p2p"
+	"github.com/ubiq/go-ubiq/p2p/discv5"
 	"github.com/ubiq/go-ubiq/params"
-	"github.com/ubiq/go-ubiq/pow"
 	rpc "github.com/ubiq/go-ubiq/rpc"
 )
 
@@ -52,22 +51,27 @@ type LightEthereum struct {
 	// Channel for shutting down the service
 	shutdownChan chan bool
 	// Handlers
+	peers           *peerSet
 	txPool          *light.TxPool
 	blockchain      *light.LightChain
 	protocolManager *ProtocolManager
+	serverPool      *serverPool
+	reqDist         *requestDistributor
+	retriever       *retrieveManager
 	// DB interfaces
 	chainDb ethdb.Database // Block chain database
 
 	ApiBackend *LesApiBackend
 
 	eventMux       *event.TypeMux
-	pow            pow.PoW
+	engine         consensus.Engine
 	accountManager *accounts.Manager
-	solcPath       string
-	solc           *compiler.Solidity
 
-	netVersionId  int
+	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
+
+	quitSync chan struct{}
+	wg       sync.WaitGroup
 }
 
 func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
@@ -75,48 +79,56 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := eth.SetupGenesisBlock(&chainDb, config); err != nil {
-		return nil, err
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	if _, isCompat := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !isCompat {
+		return nil, genesisErr
 	}
-	pow, err := eth.CreatePoW(config)
-	if err != nil {
-		return nil, err
-	}
+	log.Info("Initialised chain configuration", "config", chainConfig)
 
-	odr := NewLesOdr(chainDb)
-	relay := NewLesTxRelay()
+	peers := newPeerSet()
+	quitSync := make(chan struct{})
+
 	eth := &LightEthereum{
-		odr:            odr,
-		relay:          relay,
+		chainConfig:    chainConfig,
 		chainDb:        chainDb,
 		eventMux:       ctx.EventMux,
+		peers:          peers,
+		reqDist:        newRequestDistributor(peers, quitSync),
 		accountManager: ctx.AccountManager,
-		pow:            pow,
+		engine:         eth.CreateConsensusEngine(ctx, config, chainConfig, chainDb),
 		shutdownChan:   make(chan bool),
-		netVersionId:   config.NetworkId,
-		solcPath:       config.SolcPath,
+		networkId:      config.NetworkId,
 	}
 
-	if config.ChainConfig == nil {
-		return nil, errors.New("missing chain config")
-	}
-	eth.chainConfig = config.ChainConfig
-	eth.blockchain, err = light.NewLightChain(odr, eth.chainConfig, eth.pow, eth.eventMux)
-	if err != nil {
-		if err == core.ErrNoGenesis {
-			return nil, fmt.Errorf(`Genesis block not found. Please supply a genesis block with the "--genesis /path/to/file" argument`)
-		}
+	eth.relay = NewLesTxRelay(peers, eth.reqDist)
+	eth.serverPool = newServerPool(chainDb, quitSync, &eth.wg)
+	eth.retriever = newRetrieveManager(peers, eth.reqDist, eth.serverPool)
+	eth.odr = NewLesOdr(chainDb, eth.retriever)
+	if eth.blockchain, err = light.NewLightChain(eth.odr, eth.chainConfig, eth.engine, eth.eventMux); err != nil {
 		return nil, err
+	}
+	// Rewind the chain in case of an incompatible config upgrade.
+	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		eth.blockchain.SetHead(compat.RewindTo)
+		core.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
 	eth.txPool = light.NewTxPool(eth.chainConfig, eth.eventMux, eth.blockchain, eth.relay)
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.LightMode, config.NetworkId, eth.eventMux, eth.pow, eth.blockchain, nil, chainDb, odr, relay); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, true, config.NetworkId, eth.eventMux, eth.engine, eth.peers, eth.blockchain, nil, chainDb, eth.odr, eth.relay, quitSync, &eth.wg); err != nil {
 		return nil, err
 	}
-
 	eth.ApiBackend = &LesApiBackend{eth, nil}
-	eth.ApiBackend.gpo = gasprice.NewLightPriceOracle(eth.ApiBackend)
+	gpoParams := config.GPO
+	if gpoParams.Default == nil {
+		gpoParams.Default = config.GasPrice
+	}
+	eth.ApiBackend.gpo = gasprice.NewOracle(eth.ApiBackend, gpoParams)
 	return eth, nil
+}
+
+func lesTopic(genesisHash common.Hash) discv5.Topic {
+	return discv5.Topic("LES@" + common.Bytes2Hex(genesisHash.Bytes()[0:8]))
 }
 
 type LightDummyAPI struct{}
@@ -144,7 +156,7 @@ func (s *LightDummyAPI) Mining() bool {
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *LightEthereum) APIs() []rpc.API {
-	return append(ethapi.GetAPIs(s.ApiBackend, s.solcPath), []rpc.API{
+	return append(ethapi.GetAPIs(s.ApiBackend), []rpc.API{
 		{
 			Namespace: "eth",
 			Version:   "1.0",
@@ -175,6 +187,7 @@ func (s *LightEthereum) ResetWithGenesisBlock(gb *types.Block) {
 
 func (s *LightEthereum) BlockChain() *light.LightChain      { return s.blockchain }
 func (s *LightEthereum) TxPool() *light.TxPool              { return s.txPool }
+func (s *LightEthereum) Engine() consensus.Engine           { return s.engine }
 func (s *LightEthereum) LesVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
 func (s *LightEthereum) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
 func (s *LightEthereum) EventMux() *event.TypeMux           { return s.eventMux }
@@ -188,9 +201,10 @@ func (s *LightEthereum) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *LightEthereum) Start(srvr *p2p.Server) error {
-	glog.V(logger.Info).Infof("WARNING: light client mode is an experimental feature")
-	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.netVersionId)
-	s.protocolManager.Start(srvr)
+	log.Warn("Light client mode is an experimental feature")
+	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.networkId)
+	s.serverPool.start(srvr, lesTopic(s.blockchain.Genesis().Hash()))
+	s.protocolManager.Start()
 	return nil
 }
 

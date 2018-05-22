@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ubiq/go-ubiq"
@@ -26,7 +27,6 @@ import (
 	"github.com/ubiq/go-ubiq/internal/ethapi"
 	"github.com/ubiq/go-ubiq/rlp"
 	"github.com/ubiq/go-ubiq/rpc"
-	"golang.org/x/net/context"
 )
 
 // ContractBackend implements bind.ContractBackend with direct calls to Ethereum
@@ -48,20 +48,18 @@ func NewContractBackend(apiBackend ethapi.Backend) *ContractBackend {
 	return &ContractBackend{
 		eapi:  ethapi.NewPublicEthereumAPI(apiBackend),
 		bcapi: ethapi.NewPublicBlockChainAPI(apiBackend),
-		txapi: ethapi.NewPublicTransactionPoolAPI(apiBackend),
+		txapi: ethapi.NewPublicTransactionPoolAPI(apiBackend, new(ethapi.AddrLocker)),
 	}
 }
 
 // CodeAt retrieves any code associated with the contract from the local API.
 func (b *ContractBackend) CodeAt(ctx context.Context, contract common.Address, blockNum *big.Int) ([]byte, error) {
-	out, err := b.bcapi.GetCode(ctx, contract, toBlockNumber(blockNum))
-	return common.FromHex(out), err
+	return b.bcapi.GetCode(ctx, contract, toBlockNumber(blockNum))
 }
 
 // CodeAt retrieves any code associated with the contract from the local API.
 func (b *ContractBackend) PendingCodeAt(ctx context.Context, contract common.Address) ([]byte, error) {
-	out, err := b.bcapi.GetCode(ctx, contract, rpc.PendingBlockNumber)
-	return common.FromHex(out), err
+	return b.bcapi.GetCode(ctx, contract, rpc.PendingBlockNumber)
 }
 
 // ContractCall implements bind.ContractCaller executing an Ethereum contract
@@ -69,7 +67,7 @@ func (b *ContractBackend) PendingCodeAt(ctx context.Context, contract common.Add
 // against the pending block, not the stable head of the chain.
 func (b *ContractBackend) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNum *big.Int) ([]byte, error) {
 	out, err := b.bcapi.Call(ctx, toCallArgs(msg), toBlockNumber(blockNum))
-	return common.FromHex(out), err
+	return out, err
 }
 
 // ContractCall implements bind.ContractCaller executing an Ethereum contract
@@ -77,7 +75,7 @@ func (b *ContractBackend) CallContract(ctx context.Context, msg ethereum.CallMsg
 // against the pending block, not the stable head of the chain.
 func (b *ContractBackend) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
 	out, err := b.bcapi.Call(ctx, toCallArgs(msg), rpc.PendingBlockNumber)
-	return common.FromHex(out), err
+	return out, err
 }
 
 func toCallArgs(msg ethereum.CallMsg) ethapi.CallArgs {

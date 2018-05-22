@@ -17,20 +17,20 @@
 package light
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/core"
+	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/rlp"
-	"golang.org/x/net/context"
 )
 
 // txPermanent is the number of mined blocks after a mined transaction is
@@ -101,17 +101,18 @@ func NewTxPool(config *params.ChainConfig, eventMux *event.TypeMux, chain *Light
 }
 
 // currentState returns the light state of the current head header
-func (pool *TxPool) currentState() *LightState {
-	return NewLightState(StateTrieID(pool.chain.CurrentHeader()), pool.odr)
+func (pool *TxPool) currentState(ctx context.Context) *state.StateDB {
+	return NewState(ctx, pool.chain.CurrentHeader(), pool.odr)
 }
 
 // GetNonce returns the "pending" nonce of a given address. It always queries
 // the nonce belonging to the latest header too in order to detect if another
 // client using the same key sent a transaction.
 func (pool *TxPool) GetNonce(ctx context.Context, addr common.Address) (uint64, error) {
-	nonce, err := pool.currentState().GetNonce(ctx, addr)
-	if err != nil {
-		return 0, err
+	state := pool.currentState(ctx)
+	nonce := state.GetNonce(addr)
+	if state.Error() != nil {
+		return 0, state.Error()
 	}
 	sn, ok := pool.nonce[addr]
 	if ok && sn > nonce {
@@ -231,13 +232,13 @@ func (pool *TxPool) rollbackTxs(hash common.Hash, txc txStateChanges) {
 	}
 }
 
-// setNewHead sets a new head header, processing (and rolling back if necessary)
+// reorgOnNewHead sets a new head header, processing (and rolling back if necessary)
 // the blocks since the last known head and returns a txStateChanges map containing
 // the recently mined and rolled back transaction hashes. If an error (context
 // timeout) occurs during checking new blocks, it leaves the locally known head
 // at the latest checked block and still returns a valid txStateChanges, making it
 // possible to continue checking the missing blocks at the next chain head event
-func (pool *TxPool) setNewHead(ctx context.Context, newHeader *types.Header) (txStateChanges, error) {
+func (pool *TxPool) reorgOnNewHead(ctx context.Context, newHeader *types.Header) (txStateChanges, error) {
 	txc := make(txStateChanges)
 	oldh := pool.chain.GetHeaderByHash(pool.head)
 	newh := newHeader
@@ -277,15 +278,17 @@ func (pool *TxPool) setNewHead(ctx context.Context, newHeader *types.Header) (tx
 	// clear old mined tx entries of old blocks
 	if idx := newHeader.Number.Uint64(); idx > pool.clearIdx+txPermanent {
 		idx2 := idx - txPermanent
-		for i := pool.clearIdx; i < idx2; i++ {
-			hash := core.GetCanonicalHash(pool.chainDb, i)
-			if list, ok := pool.mined[hash]; ok {
-				hashes := make([]common.Hash, len(list))
-				for i, tx := range list {
-					hashes[i] = tx.Hash()
+		if len(pool.mined) > 0 {
+			for i := pool.clearIdx; i < idx2; i++ {
+				hash := core.GetCanonicalHash(pool.chainDb, i)
+				if list, ok := pool.mined[hash]; ok {
+					hashes := make([]common.Hash, len(list))
+					for i, tx := range list {
+						hashes[i] = tx.Hash()
+					}
+					pool.relay.Discard(hashes)
+					delete(pool.mined, hash)
 				}
-				pool.relay.Discard(hashes)
-				delete(pool.mined, hash)
 			}
 		}
 		pool.clearIdx = idx2
@@ -304,24 +307,33 @@ func (pool *TxPool) eventLoop() {
 	for ev := range pool.events.Chan() {
 		switch ev.Data.(type) {
 		case core.ChainHeadEvent:
-			pool.mu.Lock()
-			ctx, _ := context.WithTimeout(context.Background(), blockCheckTimeout)
-			head := pool.chain.CurrentHeader()
-			txc, _ := pool.setNewHead(ctx, head)
-			m, r := txc.getLists()
-			pool.relay.NewHead(pool.head, m, r)
-			pool.homestead = pool.config.IsHomestead(head.Number)
-			pool.signer = types.MakeSigner(pool.config, head.Number)
-			pool.mu.Unlock()
+			pool.setNewHead(ev.Data.(core.ChainHeadEvent).Block.Header())
+			// hack in order to avoid hogging the lock; this part will
+			// be replaced by a subsequent PR.
+			time.Sleep(time.Millisecond)
 		}
 	}
+}
+
+func (pool *TxPool) setNewHead(head *types.Header) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), blockCheckTimeout)
+	defer cancel()
+
+	txc, _ := pool.reorgOnNewHead(ctx, head)
+	m, r := txc.getLists()
+	pool.relay.NewHead(pool.head, m, r)
+	pool.homestead = pool.config.IsHomestead(head.Number)
+	pool.signer = types.MakeSigner(pool.config, head.Number)
 }
 
 // Stop stops the light transaction pool
 func (pool *TxPool) Stop() {
 	close(pool.quit)
 	pool.events.Unsubscribe()
-	glog.V(logger.Info).Infoln("Transaction pool stopped")
+	log.Info("Transaction pool stopped")
 }
 
 // Stats returns the number of currently pending (locally created) transactions
@@ -347,13 +359,9 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 		return core.ErrInvalidSender
 	}
 	// Last but not least check for nonce errors
-	currentState := pool.currentState()
-	if n, err := currentState.GetNonce(ctx, from); err == nil {
-		if n > tx.Nonce() {
-			return core.ErrNonce
-		}
-	} else {
-		return err
+	currentState := pool.currentState(ctx)
+	if n := currentState.GetNonce(from); n > tx.Nonce() {
+		return core.ErrNonceTooLow
 	}
 
 	// Check the transaction doesn't exceed the current
@@ -366,18 +374,14 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	// Transactions can't be negative. This may never happen
 	// using RLP decoded transactions but may occur if you create
 	// a transaction using the RPC for example.
-	if tx.Value().Cmp(common.Big0) < 0 {
+	if tx.Value().Sign() < 0 {
 		return core.ErrNegativeValue
 	}
 
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if b, err := currentState.GetBalance(ctx, from); err == nil {
-		if b.Cmp(tx.Cost()) < 0 {
-			return core.ErrInsufficientFunds
-		}
-	} else {
-		return err
+	if b := currentState.GetBalance(from); b.Cmp(tx.Cost()) < 0 {
+		return core.ErrInsufficientFunds
 	}
 
 	// Should supply enough intrinsic gas
@@ -385,7 +389,7 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 		return core.ErrIntrinsicGas
 	}
 
-	return nil
+	return currentState.Error()
 }
 
 // add validates a new transaction and sets its state pending if processable.
@@ -417,20 +421,8 @@ func (self *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 		go self.eventMux.Post(core.TxPreEvent{Tx: tx})
 	}
 
-	if glog.V(logger.Debug) {
-		var toname string
-		if to := tx.To(); to != nil {
-			toname = common.Bytes2Hex(to[:4])
-		} else {
-			toname = "[NEW_CONTRACT]"
-		}
-		// we can ignore the error here because From is
-		// verified in ValidateTransaction.
-		f, _ := types.Sender(self.signer, tx)
-		from := common.Bytes2Hex(f[:4])
-		glog.Infof("(t) %x => %s (%v) %x\n", from, toname, tx.Value, hash)
-	}
-
+	// Print a log message if low enough level is set
+	log.Debug("Pooled new transaction", "hash", hash, "from", log.Lazy{Fn: func() common.Address { from, _ := types.Sender(self.signer, tx); return from }}, "to", tx.To())
 	return nil
 }
 
@@ -463,15 +455,10 @@ func (self *TxPool) AddBatch(ctx context.Context, txs []*types.Transaction) {
 	var sendTx types.Transactions
 
 	for _, tx := range txs {
-		if err := self.add(ctx, tx); err != nil {
-			glog.V(logger.Debug).Infoln("tx error:", err)
-		} else {
+		if err := self.add(ctx, tx); err == nil {
 			sendTx = append(sendTx, tx)
-			h := tx.Hash()
-			glog.V(logger.Debug).Infof("tx %x\n", h[:4])
 		}
 	}
-
 	if len(sendTx) > 0 {
 		self.relay.Send(sendTx)
 	}

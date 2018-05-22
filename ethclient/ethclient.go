@@ -18,6 +18,7 @@
 package ethclient
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -28,7 +29,6 @@ import (
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/rlp"
 	"github.com/ubiq/go-ubiq/rpc"
-	"golang.org/x/net/context"
 )
 
 // Client defines typed wrappers for the Ethereum RPC API.
@@ -167,11 +167,11 @@ func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *
 	} else if _, r, _ := tx.RawSignatureValues(); r == nil {
 		return nil, false, fmt.Errorf("server returned transaction without signature")
 	}
-	var block struct{ BlockHash *common.Hash }
+	var block struct{ BlockNumber *string }
 	if err := json.Unmarshal(raw, &block); err != nil {
 		return nil, false, err
 	}
-	return tx, block.BlockHash == nil, nil
+	return tx, block.BlockNumber == nil, nil
 }
 
 // TransactionCount returns the total number of transactions in the given block.

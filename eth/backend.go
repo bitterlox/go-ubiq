@@ -21,16 +21,15 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"runtime"
 	"sync"
-	"time"
+	"sync/atomic"
 
-	"github.com/ethereum/ethash"
 	"github.com/ubiq/go-ubiq/accounts"
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/common/hexutil"
+	"github.com/ubiq/go-ubiq/consensus"
+	"github.com/ubiq/go-ubiq/consensus/ethash"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
@@ -40,68 +39,14 @@ import (
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/internal/ethapi"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/miner"
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/p2p"
 	"github.com/ubiq/go-ubiq/params"
-	"github.com/ubiq/go-ubiq/pow"
+	"github.com/ubiq/go-ubiq/rlp"
 	"github.com/ubiq/go-ubiq/rpc"
 )
-
-const (
-	epochLength    = 30000
-	ethashRevision = 23
-
-	autoDAGcheckInterval = 10 * time.Hour
-	autoDAGepochHeight   = epochLength / 2
-)
-
-var (
-	datadirInUseErrnos = map[uint]bool{11: true, 32: true, 35: true}
-	portInUseErrRE     = regexp.MustCompile("address already in use")
-)
-
-type Config struct {
-	ChainConfig *params.ChainConfig // chain configuration
-
-	NetworkId  int    // Network ID to use for selecting peers to connect to
-	Genesis    string // Genesis JSON to seed the chain database with
-	FastSync   bool   // Enables the state download based fast synchronisation algorithm
-	LightMode  bool   // Running in light client mode
-	LightServ  int    // Maximum percentage of time allowed for serving LES requests
-	LightPeers int    // Maximum number of LES client peers
-	MaxPeers   int    // Maximum number of global peers
-
-	SkipBcVersionCheck bool // e.g. blockchain export
-	DatabaseCache      int
-	DatabaseHandles    int
-
-	DocRoot   string
-	AutoDAG   bool
-	PowFake   bool
-	PowTest   bool
-	PowShared bool
-	ExtraData []byte
-
-	Etherbase    common.Address
-	GasPrice     *big.Int
-	MinerThreads int
-	SolcPath     string
-
-	GpoMinGasPrice          *big.Int
-	GpoMaxGasPrice          *big.Int
-	GpoFullBlockRatio       int
-	GpobaseStepDown         int
-	GpobaseStepUp           int
-	GpobaseCorrectionFactor int
-
-	EnablePreimageRecording bool
-
-	TestGenesisBlock *types.Block   // Genesis block to seed the chain database with (testing only!)
-	TestGenesisState ethdb.Database // Genesis state to seed the database with (testing only!)
-}
 
 type LesServer interface {
 	Start(srvr *p2p.Server)
@@ -117,7 +62,6 @@ type Ethereum struct {
 	stopDbUpgrade func()    // stop chain db sequential key upgrade
 	// Handlers
 	txPool          *core.TxPool
-	txMu            sync.Mutex
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -125,66 +69,63 @@ type Ethereum struct {
 	chainDb ethdb.Database // Block chain database
 
 	eventMux       *event.TypeMux
-	pow            pow.PoW
+	engine         consensus.Engine
 	accountManager *accounts.Manager
 
 	ApiBackend *EthApiBackend
 
-	miner        *miner.Miner
-	Mining       bool
-	MinerThreads int
-	AutoDAG      bool
-	autodagquit  chan bool
-	etherbase    common.Address
-	solcPath     string
+	miner     *miner.Miner
+	gasPrice  *big.Int
+	etherbase common.Address
 
-	netVersionId  int
+	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
+
+	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
 	s.lesServer = ls
-	s.protocolManager.lesServer = ls
 }
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
 func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
+	if config.SyncMode == downloader.LightSync {
+		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
+	}
+	if !config.SyncMode.IsValid() {
+		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
+	}
+
 	chainDb, err := CreateDB(ctx, config, "chaindata")
 	if err != nil {
 		return nil, err
 	}
 	stopDbUpgrade := upgradeSequentialKeys(chainDb)
-	if err := SetupGenesisBlock(&chainDb, config); err != nil {
-		return nil, err
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
+		return nil, genesisErr
 	}
-	pow, err := CreatePoW(config)
-	if err != nil {
-		return nil, err
-	}
+	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	eth := &Ethereum{
 		chainDb:        chainDb,
+		chainConfig:    chainConfig,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
-		pow:            pow,
+		engine:         CreateConsensusEngine(ctx, config, chainConfig, chainDb),
 		shutdownChan:   make(chan bool),
 		stopDbUpgrade:  stopDbUpgrade,
-		netVersionId:   config.NetworkId,
+		networkId:      config.NetworkId,
+		gasPrice:       config.GasPrice,
 		etherbase:      config.Etherbase,
-		MinerThreads:   config.MinerThreads,
-		AutoDAG:        config.AutoDAG,
-		solcPath:       config.SolcPath,
 	}
 
-	if err := upgradeChainDatabase(chainDb); err != nil {
-		return nil, err
-	}
 	if err := addMipmapBloomBins(chainDb); err != nil {
 		return nil, err
 	}
-
-	glog.V(logger.Info).Infof("Protocol Versions: %v, Network Id: %v", ProtocolVersions, config.NetworkId)
+	log.Info("Initialising Ubiq protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
 		bcVersion := core.GetBlockChainVersion(chainDb)
@@ -194,34 +135,19 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		core.WriteBlockChainVersion(chainDb, core.BlockChainVersion)
 	}
 
-	// load the genesis block or write a new one if no genesis
-	// block is prenent in the database.
-	genesis := core.GetBlock(chainDb, core.GetCanonicalHash(chainDb, 0), 0)
-	if genesis == nil {
-		genesis, err = core.WriteDefaultGenesisBlock(chainDb)
-		if err != nil {
-			return nil, err
-		}
-		glog.V(logger.Info).Infoln("WARNING: Wrote default ubiq genesis block")
-	}
-
-	if config.ChainConfig == nil {
-		return nil, errors.New("missing chain config")
-	}
-	core.WriteChainConfig(chainDb, genesis.Hash(), config.ChainConfig)
-
-	eth.chainConfig = config.ChainConfig
-
-	glog.V(logger.Info).Infoln("Chain config:", eth.chainConfig)
-
-	eth.blockchain, err = core.NewBlockChain(chainDb, eth.chainConfig, eth.pow, eth.EventMux(), vm.Config{EnablePreimageRecording: config.EnablePreimageRecording})
+	vmConfig := vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+	eth.blockchain, err = core.NewBlockChain(chainDb, eth.chainConfig, eth.engine, eth.eventMux, vmConfig)
 	if err != nil {
-		if err == core.ErrNoGenesis {
-			return nil, fmt.Errorf(`No chain found. Please initialise a new chain using the "init" subcommand.`)
-		}
 		return nil, err
 	}
-	newPool := core.NewTxPool(eth.chainConfig, eth.EventMux(), eth.blockchain.State, eth.blockchain.GasLimit)
+	// Rewind the chain in case of an incompatible config upgrade.
+	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		eth.blockchain.SetHead(compat.RewindTo)
+		core.WriteChainConfig(chainDb, genesisHash, chainConfig)
+	}
+
+	newPool := core.NewTxPool(config.TxPool, eth.chainConfig, eth.EventMux(), eth.blockchain.State, eth.blockchain.GasLimit)
 	eth.txPool = newPool
 
 	maxPeers := config.MaxPeers
@@ -235,80 +161,83 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		}
 	}
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.FastSync, config.NetworkId, maxPeers, eth.eventMux, eth.txPool, eth.pow, eth.blockchain, chainDb); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, maxPeers, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
-	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.pow)
-	eth.miner.SetGasPrice(config.GasPrice)
-	eth.miner.SetExtra(config.ExtraData)
 
-	gpoParams := &gasprice.GpoParams{
-		GpoMinGasPrice:          config.GpoMinGasPrice,
-		GpoMaxGasPrice:          config.GpoMaxGasPrice,
-		GpoFullBlockRatio:       config.GpoFullBlockRatio,
-		GpobaseStepDown:         config.GpobaseStepDown,
-		GpobaseStepUp:           config.GpobaseStepUp,
-		GpobaseCorrectionFactor: config.GpobaseCorrectionFactor,
+	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.miner.SetExtra(makeExtraData(config.ExtraData))
+
+	eth.ApiBackend = &EthApiBackend{eth, nil}
+	gpoParams := config.GPO
+	if gpoParams.Default == nil {
+		gpoParams.Default = config.GasPrice
 	}
-	gpo := gasprice.NewGasPriceOracle(eth.blockchain, chainDb, eth.eventMux, gpoParams)
-	eth.ApiBackend = &EthApiBackend{eth, gpo}
+	eth.ApiBackend.gpo = gasprice.NewOracle(eth.ApiBackend, gpoParams)
 
 	return eth, nil
+}
+
+func makeExtraData(extra []byte) []byte {
+	if len(extra) == 0 {
+		// create default extradata
+		extra, _ = rlp.EncodeToBytes([]interface{}{
+			uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch),
+			"geth",
+			runtime.Version(),
+			runtime.GOOS,
+		})
+	}
+	if uint64(len(extra)) > params.MaximumExtraDataSize {
+		log.Warn("Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
+		extra = nil
+	}
+	return extra
 }
 
 // CreateDB creates the chain database.
 func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Database, error) {
 	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles)
+	if err != nil {
+		return nil, err
+	}
 	if db, ok := db.(*ethdb.LDBDatabase); ok {
 		db.Meter("eth/db/chaindata/")
 	}
-	return db, err
+	return db, nil
 }
 
-// SetupGenesisBlock initializes the genesis block for an Ethereum service
-func SetupGenesisBlock(chainDb *ethdb.Database, config *Config) error {
-	// Load up any custom genesis block if requested
-	if len(config.Genesis) > 0 {
-		block, err := core.WriteGenesisBlock(*chainDb, strings.NewReader(config.Genesis))
-		if err != nil {
-			return err
-		}
-		glog.V(logger.Info).Infof("Successfully wrote custom genesis block: %x", block.Hash())
-	}
-	// Load up a test setup if directly injected
-	if config.TestGenesisState != nil {
-		*chainDb = config.TestGenesisState
-	}
-	if config.TestGenesisBlock != nil {
-		core.WriteTd(*chainDb, config.TestGenesisBlock.Hash(), config.TestGenesisBlock.NumberU64(), config.TestGenesisBlock.Difficulty())
-		core.WriteBlock(*chainDb, config.TestGenesisBlock)
-		core.WriteCanonicalHash(*chainDb, config.TestGenesisBlock.Hash(), config.TestGenesisBlock.NumberU64())
-		core.WriteHeadBlockHash(*chainDb, config.TestGenesisBlock.Hash())
-	}
-	return nil
-}
-
-// CreatePoW creates the required type of PoW instance for an Ethereum service
-func CreatePoW(config *Config) (pow.PoW, error) {
+// CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
+func CreateConsensusEngine(ctx *node.ServiceContext, config *Config, chainConfig *params.ChainConfig, db ethdb.Database) consensus.Engine {
+	// Otherwise assume proof-of-work
 	switch {
 	case config.PowFake:
-		glog.V(logger.Info).Infof("ethash used in fake mode")
-		return pow.PoW(core.FakePow{}), nil
+		log.Warn("Ethash used in fake mode")
+		return ethash.NewFaker()
 	case config.PowTest:
-		glog.V(logger.Info).Infof("ethash used in test mode")
-		return ethash.NewForTesting()
+		log.Warn("Ethash used in test mode")
+		return ethash.NewTester()
 	case config.PowShared:
-		glog.V(logger.Info).Infof("ethash used in shared mode")
-		return ethash.NewShared(), nil
+		log.Warn("Ethash used in shared mode")
+		return ethash.NewShared()
 	default:
-		return ethash.New(), nil
+		engine := ethash.New(ctx.ResolvePath(config.EthashCacheDir), config.EthashCachesInMem, config.EthashCachesOnDisk,
+			config.EthashDatasetDir, config.EthashDatasetsInMem, config.EthashDatasetsOnDisk)
+		engine.SetThreads(-1) // Disable CPU mining
+		return engine
 	}
 }
 
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Ethereum) APIs() []rpc.API {
-	return append(ethapi.GetAPIs(s.ApiBackend, s.solcPath), []rpc.API{
+	apis := ethapi.GetAPIs(s.ApiBackend)
+
+	// Append any APIs exposed explicitly by the consensus engine
+	apis = append(apis, s.engine.APIs(s.BlockChain())...)
+
+	// Append all the local APIs and return
+	return append(apis, []rpc.API{
 		{
 			Namespace: "eth",
 			Version:   "1.0",
@@ -361,8 +290,12 @@ func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
 }
 
 func (s *Ethereum) Etherbase() (eb common.Address, err error) {
-	if s.etherbase != (common.Address{}) {
-		return s.etherbase, nil
+	s.lock.RLock()
+	etherbase := s.etherbase
+	s.lock.RUnlock()
+
+	if etherbase != (common.Address{}) {
+		return etherbase, nil
 	}
 	if wallets := s.AccountManager().Wallets(); len(wallets) > 0 {
 		if accounts := wallets[0].Accounts(); len(accounts) > 0 {
@@ -373,19 +306,28 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 }
 
 // set in js console via admin interface or wrapper from cli flags
-func (self *Ethereum) SetEtherbase(etherbase common.Address) {
-	self.etherbase = etherbase
-	self.miner.SetEtherbase(etherbase)
+func (s *Ethereum) SetEtherbase(etherbase common.Address) {
+	s.lock.Lock()
+	s.etherbase = etherbase
+	s.lock.Unlock()
+
+	s.miner.SetEtherbase(etherbase)
 }
 
-func (s *Ethereum) StartMining(threads int) error {
+func (s *Ethereum) StartMining(local bool) error {
 	eb, err := s.Etherbase()
 	if err != nil {
-		err = fmt.Errorf("Cannot start mining without etherbase address: %v", err)
-		glog.V(logger.Error).Infoln(err)
-		return err
+		log.Error("Cannot start mining without etherbase", "err", err)
+		return fmt.Errorf("etherbase missing: %v", err)
 	}
-	go s.miner.Start(eb, threads)
+	if local {
+		// If local (CPU) mining is started, we can disable the transaction rejection
+		// mechanism introduced to speed sync times. CPU mining on mainnet is ludicrous
+		// so noone will ever hit this path, whereas marking sync done on CPU mining
+		// will ensure that private networks work in single miner mode too.
+		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
+	}
+	go s.miner.Start(eb)
 	return nil
 }
 
@@ -397,11 +339,11 @@ func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager
 func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
 func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
 func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
-func (s *Ethereum) Pow() pow.PoW                       { return s.pow }
+func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
 func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
 func (s *Ethereum) IsListening() bool                  { return true } // Always listening
 func (s *Ethereum) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
-func (s *Ethereum) NetVersion() int                    { return s.netVersionId }
+func (s *Ethereum) NetVersion() uint64                 { return s.networkId }
 func (s *Ethereum) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
 
 // Protocols implements node.Service, returning all the currently configured
@@ -418,9 +360,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
 	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.NetVersion())
-	if s.AutoDAG {
-		s.StartAutoDAG()
-	}
+
 	s.protocolManager.Start()
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
@@ -443,86 +383,8 @@ func (s *Ethereum) Stop() error {
 	s.miner.Stop()
 	s.eventMux.Stop()
 
-	s.StopAutoDAG()
-
 	s.chainDb.Close()
 	close(s.shutdownChan)
 
 	return nil
-}
-
-// This function will wait for a shutdown and resumes main thread execution
-func (s *Ethereum) WaitForShutdown() {
-	<-s.shutdownChan
-}
-
-// StartAutoDAG() spawns a go routine that checks the DAG every autoDAGcheckInterval
-// by default that is 10 times per epoch
-// in epoch n, if we past autoDAGepochHeight within-epoch blocks,
-// it calls ethash.MakeDAG  to pregenerate the DAG for the next epoch n+1
-// if it does not exist yet as well as remove the DAG for epoch n-1
-// the loop quits if autodagquit channel is closed, it can safely restart and
-// stop any number of times.
-// For any more sophisticated pattern of DAG generation, use CLI subcommand
-// makedag
-func (self *Ethereum) StartAutoDAG() {
-	if self.autodagquit != nil {
-		return // already started
-	}
-	go func() {
-		glog.V(logger.Info).Infof("Automatic pregeneration of ethash DAG ON (ethash dir: %s)", ethash.DefaultDir)
-		var nextEpoch uint64
-		timer := time.After(0)
-		self.autodagquit = make(chan bool)
-		for {
-			select {
-			case <-timer:
-				glog.V(logger.Info).Infof("checking DAG (ethash dir: %s)", ethash.DefaultDir)
-				currentBlock := self.BlockChain().CurrentBlock().NumberU64()
-				thisEpoch := currentBlock / epochLength
-				if nextEpoch <= thisEpoch {
-					if currentBlock%epochLength > autoDAGepochHeight {
-						if thisEpoch > 0 {
-							previousDag, previousDagFull := dagFiles(thisEpoch - 1)
-							os.Remove(filepath.Join(ethash.DefaultDir, previousDag))
-							os.Remove(filepath.Join(ethash.DefaultDir, previousDagFull))
-							glog.V(logger.Info).Infof("removed DAG for epoch %d (%s)", thisEpoch-1, previousDag)
-						}
-						nextEpoch = thisEpoch + 1
-						dag, _ := dagFiles(nextEpoch)
-						if _, err := os.Stat(dag); os.IsNotExist(err) {
-							glog.V(logger.Info).Infof("Pregenerating DAG for epoch %d (%s)", nextEpoch, dag)
-							err := ethash.MakeDAG(nextEpoch*epochLength, "") // "" -> ethash.DefaultDir
-							if err != nil {
-								glog.V(logger.Error).Infof("Error generating DAG for epoch %d (%s)", nextEpoch, dag)
-								return
-							}
-						} else {
-							glog.V(logger.Error).Infof("DAG for epoch %d (%s)", nextEpoch, dag)
-						}
-					}
-				}
-				timer = time.After(autoDAGcheckInterval)
-			case <-self.autodagquit:
-				return
-			}
-		}
-	}()
-}
-
-// stopAutoDAG stops automatic DAG pregeneration by quitting the loop
-func (self *Ethereum) StopAutoDAG() {
-	if self.autodagquit != nil {
-		close(self.autodagquit)
-		self.autodagquit = nil
-	}
-	glog.V(logger.Info).Infof("Automatic pregeneration of ethash DAG OFF (ethash dir: %s)", ethash.DefaultDir)
-}
-
-// dagFiles(epoch) returns the two alternative DAG filenames (not a path)
-// 1) <revision>-<hex(seedhash[8])> 2) full-R<revision>-<hex(seedhash[8])>
-func dagFiles(epoch uint64) (string, string) {
-	seedHash, _ := ethash.GetSeedHash(epoch * epochLength)
-	dag := fmt.Sprintf("full-R%d-%x", ethashRevision, seedHash[:8])
-	return dag, "full-R" + dag
 }

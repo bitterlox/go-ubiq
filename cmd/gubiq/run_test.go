@@ -17,18 +17,13 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
-	"regexp"
-	"sync"
 	"testing"
-	"text/template"
-	"time"
+
+	"github.com/docker/docker/pkg/reexec"
+	"github.com/ubiq/go-ubiq/internal/cmdtest"
 )
 
 func tmpdir(t *testing.T) string {
@@ -39,6 +34,7 @@ func tmpdir(t *testing.T) string {
 	return dir
 }
 
+<<<<<<< HEAD:cmd/gubiq/run_test.go
 type testgubiq struct {
 	// For total convenience, all testing methods are available.
 	*testing.T
@@ -47,29 +43,50 @@ type testgubiq struct {
 	Executable string
 	Etherbase  string
 	Func       template.FuncMap
+=======
+type testgeth struct {
+	*cmdtest.TestCmd
+>>>>>>> ab5646c532292b51e319f290afccf6a44f874372:cmd/geth/run_test.go
 
-	removeDatadir bool
-	cmd           *exec.Cmd
-	stdout        *bufio.Reader
-	stdin         io.WriteCloser
-	stderr        *testlogger
+	// template variables for expect
+	Datadir   string
+	Etherbase string
 }
 
 func init() {
+<<<<<<< HEAD:cmd/gubiq/run_test.go
 	// Run the app if we're the child process for runGubiq.
 	if os.Getenv("GETH_TEST_CHILD") != "" {
+=======
+	// Run the app if we've been exec'd as "geth-test" in runGeth.
+	reexec.Register("geth-test", func() {
+>>>>>>> ab5646c532292b51e319f290afccf6a44f874372:cmd/geth/run_test.go
 		if err := app.Run(os.Args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
+	})
+}
+
+func TestMain(m *testing.M) {
+	// check if we have been reexec'd
+	if reexec.Init() {
+		return
 	}
+	os.Exit(m.Run())
 }
 
 // spawns gubiq with the given command line args. If the args don't set --datadir, the
 // child g gets a temporary data directory.
+<<<<<<< HEAD:cmd/gubiq/run_test.go
 func runGubiq(t *testing.T, args ...string) *testgubiq {
 	tt := &testgubiq{T: t, Executable: os.Args[0]}
+=======
+func runGeth(t *testing.T, args ...string) *testgeth {
+	tt := &testgeth{}
+	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
+>>>>>>> ab5646c532292b51e319f290afccf6a44f874372:cmd/geth/run_test.go
 	for i, arg := range args {
 		switch {
 		case arg == "-datadir" || arg == "--datadir":
@@ -84,16 +101,17 @@ func runGubiq(t *testing.T, args ...string) *testgubiq {
 	}
 	if tt.Datadir == "" {
 		tt.Datadir = tmpdir(t)
-		tt.removeDatadir = true
+		tt.Cleanup = func() { os.RemoveAll(tt.Datadir) }
 		args = append([]string{"-datadir", tt.Datadir}, args...)
 		// Remove the temporary datadir if something fails below.
 		defer func() {
 			if t.Failed() {
-				os.RemoveAll(tt.Datadir)
+				tt.Cleanup()
 			}
 		}()
 	}
 
+<<<<<<< HEAD:cmd/gubiq/run_test.go
 	// Boot "gubiq". This actually runs the test binary but the init function
 	// will prevent any tests from running.
 	tt.stderr = &testlogger{t: t}
@@ -243,56 +261,11 @@ func (tt *testgubiq) withKillTimeout(fn func()) {
 	defer timeout.Stop()
 	fn()
 }
+=======
+	// Boot "geth". This actually runs the test binary but the TestMain
+	// function will prevent any tests from running.
+	tt.Run("geth-test", args...)
+>>>>>>> ab5646c532292b51e319f290afccf6a44f874372:cmd/geth/run_test.go
 
-// testlogger logs all written lines via t.Log and also
-// collects them for later inspection.
-type testlogger struct {
-	t   *testing.T
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (tl *testlogger) Write(b []byte) (n int, err error) {
-	lines := bytes.Split(b, []byte("\n"))
-	for _, line := range lines {
-		if len(line) > 0 {
-			tl.t.Logf("(stderr) %s", line)
-		}
-	}
-	tl.mu.Lock()
-	tl.buf.Write(b)
-	tl.mu.Unlock()
-	return len(b), err
-}
-
-// runeTee collects text read through it into buf.
-type runeTee struct {
-	in interface {
-		io.Reader
-		io.ByteReader
-		io.RuneReader
-	}
-	buf bytes.Buffer
-}
-
-func (rtee *runeTee) Read(b []byte) (n int, err error) {
-	n, err = rtee.in.Read(b)
-	rtee.buf.Write(b[:n])
-	return n, err
-}
-
-func (rtee *runeTee) ReadRune() (r rune, size int, err error) {
-	r, size, err = rtee.in.ReadRune()
-	if err == nil {
-		rtee.buf.WriteRune(r)
-	}
-	return r, size, err
-}
-
-func (rtee *runeTee) ReadByte() (b byte, err error) {
-	b, err = rtee.in.ReadByte()
-	if err == nil {
-		rtee.buf.WriteByte(b)
-	}
-	return b, err
+	return tt
 }
