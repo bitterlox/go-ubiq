@@ -648,6 +648,7 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 // Some weird constants to avoid constant memory allocs for them.
 var (
 	big8  = big.NewInt(8)
+	big2  = big.NewInt(2)
 	big32 = big.NewInt(32)
 )
 
@@ -657,15 +658,50 @@ var (
 // TODO (karalabe): Move the chain maker into this package and make this private!
 func AccumulateRewards(state *state.StateDB, header *types.Header, uncles []*types.Header) {
 	reward := new(big.Int).Set(blockReward)
+
+	if header.Number.Cmp(big.NewInt(358363)) > 0 {
+		reward = big.NewInt(7e+18)
+	}
+	if header.Number.Cmp(big.NewInt(716727)) > 0 {
+		reward = big.NewInt(6e+18)
+	}
+	if header.Number.Cmp(big.NewInt(1075090)) > 0 {
+		reward = big.NewInt(5e+18)
+	}
+	if header.Number.Cmp(big.NewInt(1433454)) > 0 {
+		reward = big.NewInt(4e+18)
+	}
+	if header.Number.Cmp(big.NewInt(1791818)) > 0 {
+		reward = big.NewInt(3e+18)
+	}
+	if header.Number.Cmp(big.NewInt(2150181)) > 0 {
+		reward = big.NewInt(2e+18)
+	}
+	if header.Number.Cmp(big.NewInt(2508545)) > 0 {
+		reward = big.NewInt(1e+18)
+	}
+
 	r := new(big.Int)
 	for _, uncle := range uncles {
-		r.Add(uncle.Number, big8)
+		r.Add(uncle.Number, big2)
 		r.Sub(r, header.Number)
 		r.Mul(r, blockReward)
-		r.Div(r, big8)
-		state.AddBalance(uncle.Coinbase, r)
+		r.Div(r, big2)
 
-		r.Div(blockReward, big32)
+		if header.Number.Cmp(big.NewInt(10)) < 0 {
+			state.AddBalance(uncle.Coinbase, r)
+			r.Div(blockReward, big32)
+			if r.Cmp(big.NewInt(0)) < 0 {
+				r = big.NewInt(0)
+			}
+		} else {
+			if r.Cmp(big.NewInt(0)) < 0 {
+				r = big.NewInt(0)
+			}
+			state.AddBalance(uncle.Coinbase, r)
+			r.Div(blockReward, big32)
+		}
+
 		reward.Add(reward, r)
 	}
 	state.AddBalance(header.Coinbase, reward)
