@@ -33,7 +33,7 @@ import (
 
 // DefaultConfig contains default settings for use on the Ethereum main net.
 var DefaultConfig = Config{
-	SyncMode:             downloader.FastSync,
+	SyncMode:             downloader.FullSync,
 	EthashCacheDir:       "ethash",
 	EthashCachesInMem:    2,
 	EthashCachesOnDisk:   3,
