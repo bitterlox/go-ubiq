@@ -31,6 +31,7 @@ import (
 	"github.com/ubiq/go-ubiq/consensus"
 	"github.com/ubiq/go-ubiq/consensus/ethash"
 	"github.com/ubiq/go-ubiq/core"
+	"github.com/ubiq/go-ubiq/core/bloombits"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
 	"github.com/ubiq/go-ubiq/eth/downloader"
@@ -52,25 +53,33 @@ type LesServer interface {
 	Start(srvr *p2p.Server)
 	Stop()
 	Protocols() []p2p.Protocol
+	SetBloomBitsIndexer(bbIndexer *core.ChainIndexer)
 }
 
 // Ethereum implements the Ethereum full node service.
 type Ethereum struct {
+	config      *Config
 	chainConfig *params.ChainConfig
+
 	// Channel for shutting down the service
-	shutdownChan  chan bool // Channel for shutting down the ethereum
-	stopDbUpgrade func()    // stop chain db sequential key upgrade
+	shutdownChan  chan bool    // Channel for shutting down the ethereum
+	stopDbUpgrade func() error // stop chain db sequential key upgrade
+
 	// Handlers
 	txPool          *core.TxPool
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
+
 	// DB interfaces
 	chainDb ethdb.Database // Block chain database
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
 	accountManager *accounts.Manager
+
+	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
+	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
 	ApiBackend *EthApiBackend
 
@@ -86,6 +95,7 @@ type Ethereum struct {
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
 	s.lesServer = ls
+	ls.SetBloomBitsIndexer(s.bloomIndexer)
 }
 
 // New creates a new Ethereum object (including the
@@ -97,12 +107,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
-
 	chainDb, err := CreateDB(ctx, config, "chaindata")
 	if err != nil {
 		return nil, err
 	}
-	stopDbUpgrade := upgradeSequentialKeys(chainDb)
+	stopDbUpgrade := upgradeDeduplicateData(chainDb)
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
@@ -110,6 +119,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	eth := &Ethereum{
+		config:         config,
 		chainDb:        chainDb,
 		chainConfig:    chainConfig,
 		eventMux:       ctx.EventMux,
@@ -120,23 +130,22 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		networkId:      config.NetworkId,
 		gasPrice:       config.GasPrice,
 		etherbase:      config.Etherbase,
+		bloomRequests:  make(chan chan *bloombits.Retrieval),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
 
-	if err := addMipmapBloomBins(chainDb); err != nil {
-		return nil, err
-	}
-	log.Info("Initialising Ubiq protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
 		bcVersion := core.GetBlockChainVersion(chainDb)
 		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
-			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run gubiq upgradedb.\n", bcVersion, core.BlockChainVersion)
+			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
 		}
 		core.WriteBlockChainVersion(chainDb, core.BlockChainVersion)
 	}
 
 	vmConfig := vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-	eth.blockchain, err = core.NewBlockChain(chainDb, eth.chainConfig, eth.engine, eth.eventMux, vmConfig)
+	eth.blockchain, err = core.NewBlockChain(chainDb, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -146,25 +155,16 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		eth.blockchain.SetHead(compat.RewindTo)
 		core.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
+	eth.bloomIndexer.Start(eth.blockchain)
 
-	newPool := core.NewTxPool(config.TxPool, eth.chainConfig, eth.EventMux(), eth.blockchain.State, eth.blockchain.GasLimit)
-	eth.txPool = newPool
-
-	maxPeers := config.MaxPeers
-	if config.LightServ > 0 {
-		// if we are running a light server, limit the number of ETH peers so that we reserve some space for incoming LES connections
-		// temporary solution until the new peer connectivity API is finished
-		halfPeers := maxPeers / 2
-		maxPeers -= config.LightPeers
-		if maxPeers < halfPeers {
-			maxPeers = halfPeers
-		}
+	if config.TxPool.Journal != "" {
+		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
+	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, maxPeers, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
-
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 
@@ -306,12 +306,12 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 }
 
 // set in js console via admin interface or wrapper from cli flags
-func (s *Ethereum) SetEtherbase(etherbase common.Address) {
-	s.lock.Lock()
-	s.etherbase = etherbase
-	s.lock.Unlock()
+func (self *Ethereum) SetEtherbase(etherbase common.Address) {
+	self.lock.Lock()
+	self.etherbase = etherbase
+	self.lock.Unlock()
 
-	s.miner.SetEtherbase(etherbase)
+	self.miner.SetEtherbase(etherbase)
 }
 
 func (s *Ethereum) StartMining(local bool) error {
@@ -351,17 +351,29 @@ func (s *Ethereum) Downloader() *downloader.Downloader { return s.protocolManage
 func (s *Ethereum) Protocols() []p2p.Protocol {
 	if s.lesServer == nil {
 		return s.protocolManager.SubProtocols
-	} else {
-		return append(s.protocolManager.SubProtocols, s.lesServer.Protocols()...)
 	}
+	return append(s.protocolManager.SubProtocols, s.lesServer.Protocols()...)
 }
 
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start(srvr *p2p.Server) error {
+	// Start the bloom bits servicing goroutines
+	s.startBloomHandlers()
+
+	// Start the RPC service
 	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.NetVersion())
 
-	s.protocolManager.Start()
+	// Figure out a max peers count based on the server limits
+	maxPeers := srvr.MaxPeers
+	if s.config.LightServ > 0 {
+		maxPeers -= s.config.LightPeers
+		if maxPeers < srvr.MaxPeers/2 {
+			maxPeers = srvr.MaxPeers / 2
+		}
+	}
+	// Start the networking layer and the light server if requested
+	s.protocolManager.Start(maxPeers)
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
@@ -374,6 +386,7 @@ func (s *Ethereum) Stop() error {
 	if s.stopDbUpgrade != nil {
 		s.stopDbUpgrade()
 	}
+	s.bloomIndexer.Close()
 	s.blockchain.Stop()
 	s.protocolManager.Stop()
 	if s.lesServer != nil {

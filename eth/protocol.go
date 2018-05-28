@@ -22,7 +22,9 @@ import (
 	"math/big"
 
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/types"
+	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/rlp"
 )
 
@@ -41,10 +43,7 @@ var ProtocolVersions = []uint{eth63, eth62}
 // Number of implemented message corresponding to different protocol versions.
 var ProtocolLengths = []uint64{17, 8}
 
-const (
-	NetworkId          = 88
-	ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
-)
+const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
 // eth protocol message codes
 const (
@@ -98,11 +97,15 @@ var errorToString = map[int]string{
 
 type txPool interface {
 	// AddRemotes should add the given transactions to the pool.
-	AddRemotes([]*types.Transaction) error
+	AddRemotes([]*types.Transaction) []error
 
 	// Pending should return pending transactions.
 	// The slice should be modifiable by the caller.
 	Pending() (map[common.Address]types.Transactions, error)
+
+	// SubscribeTxPreEvent should return an event subscription of
+	// TxPreEvent and send events to the given channel.
+	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
 }
 
 // statusData is the network packet for the status message.

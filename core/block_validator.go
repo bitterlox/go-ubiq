@@ -60,9 +60,9 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
-		return err
-	}
+	//if err := v.engine.VerifyUncles(v.bc, block); err != nil {
+	//	return err
+	//}
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
 	}

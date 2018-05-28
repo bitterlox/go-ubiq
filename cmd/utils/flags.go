@@ -41,7 +41,6 @@ import (
 	"github.com/ubiq/go-ubiq/eth/gasprice"
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/ethstats"
-	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/les"
 	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/metrics"
@@ -1071,7 +1070,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		Fatalf("%v", err)
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
-	chain, err = core.NewBlockChain(chainDb, config, engine, new(event.TypeMux), vmcfg)
+	chain, err = core.NewBlockChain(chainDb, config, engine, vmcfg)
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}

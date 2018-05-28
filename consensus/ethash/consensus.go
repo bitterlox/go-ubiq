@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime"
 	"time"
 
 	"github.com/ubiq/go-ubiq/common"
@@ -34,6 +33,8 @@ import (
 	"github.com/ubiq/go-ubiq/params"
 	"gopkg.in/fatih/set.v0"
 	"sort"
+	"runtime"
+	"strconv"
 )
 
 var (
@@ -53,6 +54,8 @@ var (
 	nPowMaxAdjustDownFlux = big.NewInt(5) // 0.5% adjustment down
 	nPowMaxAdjustUpFlux   = big.NewInt(3) // 0.3% adjustment up
 	nPowDampFlux          = big.NewInt(1) // 0.1%
+
+	medianTimeBlocks = uint64(11)
 )
 
 // Avoids a dependency cycle
@@ -150,28 +153,36 @@ func maxActualTimespanFlux(dampen bool) *big.Int {
 	return z
 }
 
-func calcPastMedianTime(number uint64, chain consensus.ChainReader, parent *types.Header) *big.Int {
-	log.Debug(fmt.Sprintf("consensus calcPastMedianTime number: %x", number))
+func GoID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
+}
 
+func calcPastMedianTime(number uint64, chain consensus.ChainReader, parent *types.Header) *big.Int {
 	// Genesis block.
 	if number == 0 {
 		return chain.GetHeaderByNumber(0).Time
 	}
 
-	medianTimeBlocks := uint64(11)
 	timestamps := make([]*big.Int, medianTimeBlocks)
 	numNodes := 0
 	limit := uint64(0)
 	if number >= medianTimeBlocks {
 		limit = number - medianTimeBlocks + 1
-		log.Debug(fmt.Sprintf("consensus calcPastMedianTime limit: %x", limit))
 	}
 
+	log.Debug(fmt.Sprintf("consensus -> calcPastMedianTime - goId: %d, starting: %d, ending: %d, parent != nil: %t", GoID(), number, limit, parent != nil))
+
 	for i := number; i >= limit; i-- {
-		log.Debug(fmt.Sprintf("consensus calcPastMedianTime i: %x", i))
 		if parent != nil && i == number {
+			log.Debug(fmt.Sprintf("consensus -> calcPastMedianTime - parent: %d | goID: %d", parent.Number, GoID()))
 			timestamps[numNodes] = parent.Time
 		} else {
+			log.Debug(fmt.Sprintf("consensus -> calcPastMedianTime - GetHeaderByNumber: %d | goID: %d", i, GoID()))
 			header := chain.GetHeaderByNumber(i)
 			timestamps[numNodes] = header.Time
 		}
@@ -181,15 +192,14 @@ func calcPastMedianTime(number uint64, chain consensus.ChainReader, parent *type
 		}
 	}
 
-	log.Debug(fmt.Sprintf("consensus calcPastMedianTime numNodes: %x", numNodes))
-
 	// Prune the slice to the actual number of available timestamps which
 	// will be fewer than desired near the beginning of the block chain
 	// and sort them.
+
 	timestamps = timestamps[:numNodes]
 	sort.Sort(BigIntSlice(timestamps))
 
-	log.Debug(fmt.Sprintf("consensus calcPastMedianTime timestamps: %x", timestamps))
+	log.Debug(fmt.Sprintf("consensus -> calcPastMedianTime - timestamps: %v", timestamps))
 
 	medianTimestamp := timestamps[numNodes/2]
 	return medianTimestamp
@@ -227,6 +237,8 @@ func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	log.Debug(fmt.Sprintf("consensus -> VerifyHeader"))
+
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull {
 		return nil
@@ -248,6 +260,8 @@ func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, header *types.He
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
 func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+	log.Debug(fmt.Sprintf("consensus -> VerifyHeaders: Verifying batch of headers"))
+
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -258,10 +272,10 @@ func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*type
 	}
 
 	// Spawn as many workers as allowed threads
-	workers := runtime.GOMAXPROCS(0)
-	if len(headers) < workers {
-		workers = len(headers)
-	}
+	workers := 1 //runtime.GOMAXPROCS(0)
+	//if len(headers) < workers {
+	//	workers = len(headers)
+	//}
 
 	// Create a task channel and spawn the verifiers
 	var (
@@ -270,14 +284,14 @@ func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*type
 		errors = make([]error, len(headers))
 		abort  = make(chan struct{})
 	)
-	for i := 0; i < workers; i++ {
-		go func() {
-			for index := range inputs {
-				errors[index] = ethash.verifyHeaderWorker(chain, headers, seals, index)
-				done <- index
-			}
-		}()
-	}
+	//for i := 0; i < workers; i++ {
+	go func() {
+		for index := range inputs {
+			errors[index] = ethash.verifyHeaderWorker(chain, headers, seals, index)
+			done <- index
+		}
+	}()
+	//}
 
 	errorsOut := make(chan error, len(headers))
 	go func() {
@@ -322,12 +336,15 @@ func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
 		return nil // known block
 	}
+	log.Debug(fmt.Sprintf("consensus -> verifyHeaderWorker - goId: %d, header: %d", GoID(), parent.Number))
 	return ethash.verifyHeader(chain, headers[index], parent, false, seals[index])
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum ethash engine.
 func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+	log.Debug(fmt.Sprintf("VerifyUncles: Verifying batch of blocks"))
+
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull {
 		return nil
@@ -381,6 +398,8 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
 func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool) error {
+	log.Debug(fmt.Sprintf("consensus -> verifyHeader - goId: %d, header: %d", GoID(), parent.Number))
+
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -465,9 +484,11 @@ func calcDifficultyOrig(parentNumber, parentDiff *big.Int, parent *types.Header,
 	nFirstBlock := new(big.Int)
 	nFirstBlock.Sub(parentNumber, nPowAveragingWindow)
 
+	log.Debug(fmt.Sprintf("calcDifficultyOrig: goId %d, parentNumber: %d, nFirstBlock: %d, parentNumber(%d) < nPowAveragingWindow(%d)", GoID(), parentNumber, nFirstBlock, parentNumber, nPowAveragingWindow))
+
 	// Check we have enough blocks
 	if parentNumber.Cmp(nPowAveragingWindow) < 1 {
-		log.Debug(fmt.Sprintf("CalcDifficulty: parentNumber(%+x) < nPowAveragingWindow(%+x)", parentNumber, nPowAveragingWindow))
+		log.Debug(fmt.Sprintf("calcDifficultyOrig: Need more blocks! Returning parentDiff %d, goId: %d", parentDiff, GoID()))
 		x.Set(parentDiff)
 		return x
 	}
@@ -625,6 +646,7 @@ func (ethash *Ethash) VerifySeal(chain consensus.ChainReader, header *types.Head
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	log.Debug(fmt.Sprintf("consensus -> Prepare"))
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor

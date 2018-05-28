@@ -1,18 +1,18 @@
-// Copyright 2015 The go-ubiq Authors
-// This file is part of the go-ubiq library.
+// Copyright 2015 The go-ethereum Authors
+// This file is part of the go-ethereum library.
 //
-// The go-ubiq library is free software: you can redistribute it and/or modify
+// The go-ethereum library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ubiq library is distributed in the hope that it will be useful,
+// The go-ethereum library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ubiq library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package core
 
@@ -48,8 +48,6 @@ const (
 type HeaderChain struct {
 	config *params.ChainConfig
 
-	genesisBlock *types.Block
-
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
@@ -70,7 +68,7 @@ type HeaderChain struct {
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, genesisBlock *types.Block, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -90,7 +88,6 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		procInterrupt: procInterrupt,
 		rand:          mrand.New(mrand.NewSource(seed.Int64())),
 		engine:        engine,
-		genesisBlock:  genesisBlock,
 	}
 
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
@@ -270,7 +267,7 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader WhCa
 			return i, errors.New("aborted")
 		}
 		// If the header's already known, skip it, otherwise store
-		if hc.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
+		if hc.HasHeader(header.Hash(), header.Number.Uint64()) {
 			stats.ignored++
 			continue
 		}
@@ -304,27 +301,6 @@ func (hc *HeaderChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []co
 		}
 		chain = append(chain, next)
 		if header.Number.Sign() == 0 {
-			break
-		}
-	}
-	return chain
-}
-
-func (hc *HeaderChain) GetBlockHeadersFromHash(hash common.Hash, max uint64) []*types.Header {
-	// Get the origin header from which to fetch
-	header := hc.GetHeaderByHash(hash)
-	if header == nil {
-		return nil
-	}
-	// Iterate the headers until enough is collected or the genesis reached
-	chain := make([]*types.Header, 0, max)
-	for i := uint64(0); i < max; i++ {
-		next := header.ParentHash
-		if header = hc.GetHeaderByHash(next); header == nil {
-			break
-		}
-		chain = append(chain, hc.GetHeaderByHash(next))
-		if header.Number.Cmp(common.Big0) == 0 {
 			break
 		}
 	}
@@ -385,19 +361,20 @@ func (hc *HeaderChain) GetHeaderByHash(hash common.Hash) *types.Header {
 	return hc.GetHeader(hash, hc.GetBlockNumber(hash))
 }
 
-// HasHeader checks if a block header is present in the database or not, caching
-// it if present.
-func (hc *HeaderChain) HasHeader(hash common.Hash) bool {
-	return hc.GetHeaderByHash(hash) != nil
+// HasHeader checks if a block header is present in the database or not.
+func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
+	if hc.numberCache.Contains(hash) || hc.headerCache.Contains(hash) {
+		return true
+	}
+	ok, _ := hc.chainDb.Has(headerKey(hash, number))
+	return ok
 }
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
 func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	hash := GetCanonicalHash(hc.chainDb, number)
-	log.Debug(fmt.Sprintf("GetHeaderByNumber / number: %x, hash: %+v", number, hash))
 	if hash == (common.Hash{}) {
-		log.Debug(fmt.Sprintf("GetHeaderByNumber / number: %x, return nil", number))
 		return nil
 	}
 	return hc.GetHeader(hash, number)

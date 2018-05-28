@@ -26,8 +26,8 @@ import (
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
 	"github.com/ubiq/go-ubiq/ethdb"
-	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/params"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 // So we can deterministically seed different blockchains
@@ -142,6 +142,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
+	log.Debug(fmt.Sprintf("chain_makers -> OffsetTime"))
 	b.header.Difficulty = ethash.CalcDifficulty(b.bc, b.header.Time.Uint64(), b.parent.Header())
 }
 
@@ -223,7 +224,7 @@ func newCanonical(n int, full bool) (ethdb.Database, *BlockChain, error) {
 	db, _ := ethdb.NewMemDatabase()
 	genesis := gspec.MustCommit(db)
 
-	blockchain, _ := NewBlockChain(db, params.AllProtocolChanges, ethash.NewFaker(), new(event.TypeMux), vm.Config{})
+	blockchain, _ := NewBlockChain(db, params.AllProtocolChanges, ethash.NewFaker(), vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
