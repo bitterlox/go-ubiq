@@ -43,13 +43,13 @@ func tmpDatadirWithKeystore(t *testing.T) string {
 }
 
 func TestAccountListEmpty(t *testing.T) {
-	gubiq := runGeth(t, "account", "list")
+	gubiq := runGubiq(t, "account", "list")
 	gubiq.ExpectExit()
 }
 
 func TestAccountList(t *testing.T) {
 	datadir := tmpDatadirWithKeystore(t)
-	gubiq := runGeth(t, "account", "list", "--datadir", datadir)
+	gubiq := runGubiq(t, "account", "list", "--datadir", datadir)
 	defer gubiq.ExpectExit()
 	if runtime.GOOS == "windows" {
 		gubiq.Expect(`

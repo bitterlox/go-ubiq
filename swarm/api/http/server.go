@@ -39,6 +39,7 @@ import (
 	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/swarm/api"
 	"github.com/ubiq/go-ubiq/swarm/storage"
+  "github.com/rs/cors"
 )
 
 // ServerConfig is the basic configuration needed for the HTTP server and also
