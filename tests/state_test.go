@@ -33,9 +33,7 @@ func BenchmarkStateCall1024(b *testing.B) {
 }
 
 func TestStateSystemOperations(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stSystemOperationsTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -44,9 +42,7 @@ func TestStateSystemOperations(t *testing.T) {
 }
 
 func TestStateExample(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stExample.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -55,9 +51,7 @@ func TestStateExample(t *testing.T) {
 }
 
 func TestStatePreCompiledContracts(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stPreCompiledContracts.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -66,9 +60,7 @@ func TestStatePreCompiledContracts(t *testing.T) {
 }
 
 func TestStateRecursiveCreate(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stRecursiveCreate.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -77,9 +69,7 @@ func TestStateRecursiveCreate(t *testing.T) {
 }
 
 func TestStateSpecial(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stSpecialTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -88,9 +78,7 @@ func TestStateSpecial(t *testing.T) {
 }
 
 func TestStateRefund(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stRefundTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -99,9 +87,7 @@ func TestStateRefund(t *testing.T) {
 }
 
 func TestStateBlockHash(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stBlockHashTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -110,9 +96,7 @@ func TestStateBlockHash(t *testing.T) {
 }
 
 func TestStateInitCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stInitCodeTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -121,9 +105,7 @@ func TestStateInitCode(t *testing.T) {
 }
 
 func TestStateLog(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stLogTests.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -132,9 +114,7 @@ func TestStateLog(t *testing.T) {
 }
 
 func TestStateTransaction(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stTransactionTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -143,9 +123,7 @@ func TestStateTransaction(t *testing.T) {
 }
 
 func TestStateTransition(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stTransitionTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -154,9 +132,7 @@ func TestStateTransition(t *testing.T) {
 }
 
 func TestCallCreateCallCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stCallCreateCallCodeTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -165,9 +141,7 @@ func TestCallCreateCallCode(t *testing.T) {
 }
 
 func TestCallCodes(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stCallCodes.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -176,9 +150,7 @@ func TestCallCodes(t *testing.T) {
 }
 
 func TestMemory(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stMemoryTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -187,9 +159,7 @@ func TestMemory(t *testing.T) {
 }
 
 func TestMemoryStress(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	if os.Getenv("TEST_VM_COMPLEX") == "" {
 		t.Skip()
@@ -201,9 +171,7 @@ func TestMemoryStress(t *testing.T) {
 }
 
 func TestQuadraticComplexity(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	if os.Getenv("TEST_VM_COMPLEX") == "" {
 		t.Skip()
@@ -215,9 +183,7 @@ func TestQuadraticComplexity(t *testing.T) {
 }
 
 func TestSolidity(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stSolidityTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -226,9 +192,7 @@ func TestSolidity(t *testing.T) {
 }
 
 func TestWallet(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fn := filepath.Join(stateTestDir, "stWalletTest.json")
 	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
@@ -237,9 +201,7 @@ func TestWallet(t *testing.T) {
 }
 
 func TestStateTestsRandom(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
+	chainConfig := &params.ChainConfig{}
 
 	fns, _ := filepath.Glob("./files/StateTests/RandomTests/*")
 	for _, fn := range fns {
@@ -250,441 +212,10 @@ func TestStateTestsRandom(t *testing.T) {
 	}
 }
 
-// homestead tests
-func TestHomesteadDelegateCall(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: big.NewInt(1150000),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stDelegatecallTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStateSystemOperations(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stSystemOperationsTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStatePreCompiledContracts(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stPreCompiledContracts.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStateRecursiveCreate(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stSpecialTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStateRefund(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stRefundTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStateInitCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stInitCodeTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStateLog(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stLogTests.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadStateTransaction(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stTransactionTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadCallCreateCallCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stCallCreateCallCodeTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadCallCodes(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stCallCodes.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadMemory(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stMemoryTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadMemoryStress(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	if os.Getenv("TEST_VM_COMPLEX") == "" {
-		t.Skip()
-	}
-	fn := filepath.Join(stateTestDir, "Homestead", "stMemoryStressTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadQuadraticComplexity(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	if os.Getenv("TEST_VM_COMPLEX") == "" {
-		t.Skip()
-	}
-	fn := filepath.Join(stateTestDir, "Homestead", "stQuadraticComplexityTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadWallet(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stWalletTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadDelegateCodes(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stCallDelegateCodes.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadDelegateCodesCallCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stCallDelegateCodesCallCode.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestHomesteadBounds(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-	}
-
-	fn := filepath.Join(stateTestDir, "Homestead", "stBoundsTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-// EIP150 tests
-func TestEIP150Specific(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "stEIPSpecificTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150SingleCodeGasPrice(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "stEIPSingleCodeGasPrices.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150MemExpandingCalls(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "stMemExpandingEIPCalls.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStateSystemOperations(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stSystemOperationsTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStatePreCompiledContracts(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stPreCompiledContracts.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStateRecursiveCreate(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stSpecialTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStateRefund(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stRefundTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStateInitCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stInitCodeTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStateLog(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stLogTests.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadStateTransaction(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stTransactionTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadCallCreateCallCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stCallCreateCallCodeTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadCallCodes(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stCallCodes.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadMemory(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stMemoryTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadMemoryStress(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	if os.Getenv("TEST_VM_COMPLEX") == "" {
-		t.Skip()
-	}
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stMemoryStressTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadQuadraticComplexity(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	if os.Getenv("TEST_VM_COMPLEX") == "" {
-		t.Skip()
-	}
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stQuadraticComplexityTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadWallet(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stWalletTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadDelegateCodes(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stCallDelegateCodes.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadDelegateCodesCallCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stCallDelegateCodesCallCode.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestEIP150HomesteadBounds(t *testing.T) {
-	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-	}
-
-	fn := filepath.Join(stateTestDir, "EIP150", "Homestead", "stBoundsTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
 // EIP158 tests
 func TestEIP158Create(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "stCreateTest.json")
@@ -695,9 +226,7 @@ func TestEIP158Create(t *testing.T) {
 
 func TestEIP158Specific(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "stEIP158SpecificTest.json")
@@ -708,9 +237,7 @@ func TestEIP158Specific(t *testing.T) {
 
 func TestEIP158NonZeroCalls(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "stNonZeroCallsTest.json")
@@ -721,9 +248,7 @@ func TestEIP158NonZeroCalls(t *testing.T) {
 
 func TestEIP158ZeroCalls(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "stZeroCallsTest.json")
@@ -734,9 +259,7 @@ func TestEIP158ZeroCalls(t *testing.T) {
 
 func TestEIP158_150Specific(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "EIP150", "stEIPSpecificTest.json")
@@ -747,9 +270,7 @@ func TestEIP158_150Specific(t *testing.T) {
 
 func TestEIP158_150SingleCodeGasPrice(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "EIP150", "stEIPsingleCodeGasPrices.json")
@@ -760,9 +281,7 @@ func TestEIP158_150SingleCodeGasPrice(t *testing.T) {
 
 func TestEIP158_150MemExpandingCalls(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "EIP150", "stMemExpandingEIPCalls.json")
@@ -773,9 +292,7 @@ func TestEIP158_150MemExpandingCalls(t *testing.T) {
 
 func TestEIP158HomesteadStateSystemOperations(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stSystemOperationsTest.json")
@@ -786,9 +303,7 @@ func TestEIP158HomesteadStateSystemOperations(t *testing.T) {
 
 func TestEIP158HomesteadStatePreCompiledContracts(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stPreCompiledContracts.json")
@@ -799,9 +314,7 @@ func TestEIP158HomesteadStatePreCompiledContracts(t *testing.T) {
 
 func TestEIP158HomesteadStateRecursiveCreate(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stSpecialTest.json")
@@ -812,9 +325,7 @@ func TestEIP158HomesteadStateRecursiveCreate(t *testing.T) {
 
 func TestEIP158HomesteadStateRefund(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stRefundTest.json")
@@ -825,9 +336,7 @@ func TestEIP158HomesteadStateRefund(t *testing.T) {
 
 func TestEIP158HomesteadStateInitCode(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stInitCodeTest.json")
@@ -838,9 +347,7 @@ func TestEIP158HomesteadStateInitCode(t *testing.T) {
 
 func TestEIP158HomesteadStateLog(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stLogTests.json")
@@ -851,9 +358,7 @@ func TestEIP158HomesteadStateLog(t *testing.T) {
 
 func TestEIP158HomesteadStateTransaction(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stTransactionTest.json")
@@ -864,9 +369,7 @@ func TestEIP158HomesteadStateTransaction(t *testing.T) {
 
 func TestEIP158HomesteadCallCreateCallCode(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stCallCreateCallCodeTest.json")
@@ -877,9 +380,7 @@ func TestEIP158HomesteadCallCreateCallCode(t *testing.T) {
 
 func TestEIP158HomesteadCallCodes(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stCallCodes.json")
@@ -890,9 +391,7 @@ func TestEIP158HomesteadCallCodes(t *testing.T) {
 
 func TestEIP158HomesteadMemory(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stMemoryTest.json")
@@ -903,9 +402,7 @@ func TestEIP158HomesteadMemory(t *testing.T) {
 
 func TestEIP158HomesteadMemoryStress(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	if os.Getenv("TEST_VM_COMPLEX") == "" {
@@ -919,9 +416,7 @@ func TestEIP158HomesteadMemoryStress(t *testing.T) {
 
 func TestEIP158HomesteadQuadraticComplexity(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	if os.Getenv("TEST_VM_COMPLEX") == "" {
@@ -935,9 +430,7 @@ func TestEIP158HomesteadQuadraticComplexity(t *testing.T) {
 
 func TestEIP158HomesteadWallet(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stWalletTest.json")
@@ -948,9 +441,7 @@ func TestEIP158HomesteadWallet(t *testing.T) {
 
 func TestEIP158HomesteadDelegateCodes(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stCallDelegateCodes.json")
@@ -961,9 +452,7 @@ func TestEIP158HomesteadDelegateCodes(t *testing.T) {
 
 func TestEIP158HomesteadDelegateCodesCallCode(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stCallDelegateCodesCallCode.json")
@@ -974,9 +463,7 @@ func TestEIP158HomesteadDelegateCodesCallCode(t *testing.T) {
 
 func TestEIP158HomesteadBounds(t *testing.T) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
-		EIP150Block:    big.NewInt(2457000),
-		EIP158Block:    params.MainNetSpuriousDragon,
+		EIP158Block: params.MainNetSpuriousDragon,
 	}
 
 	fn := filepath.Join(stateTestDir, "EIP158", "Homestead", "stBoundsTest.json")

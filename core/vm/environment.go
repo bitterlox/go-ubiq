@@ -304,7 +304,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas, value *big.Int) (re
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
 	if maxCodeSizeExceeded ||
-		(err != nil && (evm.ChainConfig().IsHomestead(evm.BlockNumber) || err != ErrCodeStoreOutOfGas)) {
+		(err != nil && err != ErrCodeStoreOutOfGas) {
 		contract.UseGas(contract.Gas)
 		evm.StateDB.RevertToSnapshot(snapshot)
 

@@ -857,13 +857,6 @@ func MakeChainConfigFromDb(ctx *cli.Context, db ethdb.Database) *params.ChainCon
 		if ctx.GlobalBool(TestNetFlag.Name) {
 			config = params.TestnetChainConfig
 		} else {
-			// Homestead fork
-			config.HomesteadBlock = params.MainNetHomesteadBlock
-
-			// DoS reprice fork
-			config.EIP150Block = params.MainNetHomesteadGasRepriceBlock
-			config.EIP150Hash = params.MainNetHomesteadGasRepriceHash
-
 			// DoS state cleanup fork
 			config.EIP155Block = params.MainNetSpuriousDragon
 			config.EIP158Block = params.MainNetSpuriousDragon

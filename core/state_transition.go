@@ -217,10 +217,9 @@ func (self *StateTransition) TransitionDb() (ret []byte, requiredGas, usedGas *b
 	msg := self.msg
 	sender := self.from() // err checked in preCheck
 
-	homestead := self.env.ChainConfig().IsHomestead(self.env.BlockNumber)
 	contractCreation := MessageCreatesContract(msg)
 	// Pay intrinsic gas
-	if err = self.useGas(IntrinsicGas(self.data, contractCreation, homestead)); err != nil {
+	if err = self.useGas(IntrinsicGas(self.data, contractCreation, true)); err != nil {
 		return nil, nil, nil, InvalidTxError(err)
 	}
 

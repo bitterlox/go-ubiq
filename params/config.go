@@ -19,28 +19,20 @@ package params
 import (
 	"fmt"
 	"math/big"
-
-	"github.com/ubiq/go-ubiq/common"
 )
 
 // MainnetChainConfig is the chain parameters to run a node on the main network.
 var MainnetChainConfig = &ChainConfig{
-	ChainId:        MainNetChainID,
-	HomesteadBlock: MainNetHomesteadBlock,
-	EIP150Block:    MainNetHomesteadGasRepriceBlock,
-	EIP150Hash:     MainNetHomesteadGasRepriceHash,
-	EIP155Block:    MainNetSpuriousDragon,
-	EIP158Block:    MainNetSpuriousDragon,
+	ChainId:     MainNetChainID,
+	EIP155Block: MainNetSpuriousDragon,
+	EIP158Block: MainNetSpuriousDragon,
 }
 
 // TestnetChainConfig is the chain parameters to run a node on the test network.
 var TestnetChainConfig = &ChainConfig{
-	ChainId:        big.NewInt(9),
-	HomesteadBlock: big.NewInt(0),
-	EIP150Block:    big.NewInt(0),
-	EIP150Hash:     common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
-	EIP155Block:    big.NewInt(10),
-	EIP158Block:    big.NewInt(10),
+	ChainId:     big.NewInt(9),
+	EIP155Block: big.NewInt(10),
+	EIP158Block: big.NewInt(10),
 }
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -51,64 +43,38 @@ var TestnetChainConfig = &ChainConfig{
 type ChainConfig struct {
 	ChainId *big.Int `json:"chainId"` // Chain id identifies the current chain and is used for replay protection
 
-	HomesteadBlock *big.Int `json:"homesteadBlock"` // Homestead switch block (nil = no fork, 0 = already homestead)
-
-	// EIP150 implements the Gas price changes (https://github.com/ethereum/EIPs/issues/150)
-	EIP150Block *big.Int    `json:"eip150Block"` // EIP150 HF block (nil = no fork)
-	EIP150Hash  common.Hash `json:"eip150Hash"`  // EIP150 HF hash (fast sync aid)
-
 	EIP155Block *big.Int `json:"eip155Block"` // EIP155 HF block
 	EIP158Block *big.Int `json:"eip158Block"` // EIP158 HF block
 }
 
 // String implements the Stringer interface.
 func (c *ChainConfig) String() string {
-	return fmt.Sprintf("{ChainID: %v Homestead: %v EIP150: %v EIP155: %v EIP158: %v}",
+	return fmt.Sprintf("{ChainID: %v EIP155: %v EIP158: %v}",
 		c.ChainId,
-		c.HomesteadBlock,
-		c.EIP150Block,
 		c.EIP155Block,
 		c.EIP158Block,
 	)
 }
 
 var (
-	TestChainConfig = &ChainConfig{big.NewInt(1), new(big.Int), new(big.Int), common.Hash{}, new(big.Int), new(big.Int)}
+	TestChainConfig = &ChainConfig{big.NewInt(1), new(big.Int), new(big.Int)}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
-
-// IsHomestead returns whether num is either equal to the homestead block or greater.
-func (c *ChainConfig) IsHomestead(num *big.Int) bool {
-	if c.HomesteadBlock == nil || num == nil {
-		return false
-	}
-	return num.Cmp(c.HomesteadBlock) >= 0
-}
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
 func (c *ChainConfig) GasTable(num *big.Int) GasTable {
 	if num == nil {
-		return GasTableHomestead
+		return GasTableEIP150
 	}
 
 	switch {
 	case c.EIP158Block != nil && num.Cmp(c.EIP158Block) >= 0:
 		return GasTableEIP158
-	case c.EIP150Block != nil && num.Cmp(c.EIP150Block) >= 0:
-		return GasTableHomesteadGasRepriceFork
 	default:
-		return GasTableHomestead
+		return GasTableEIP150
 	}
-}
-
-func (c *ChainConfig) IsEIP150(num *big.Int) bool {
-	if c.EIP150Block == nil || num == nil {
-		return false
-	}
-	return num.Cmp(c.EIP150Block) >= 0
-
 }
 
 func (c *ChainConfig) IsEIP155(num *big.Int) bool {
@@ -133,10 +99,10 @@ func (c *ChainConfig) IsEIP158(num *big.Int) bool {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainId                                   *big.Int
-	IsHomestead, IsEIP150, IsEIP155, IsEIP158 bool
+	ChainId            *big.Int
+	IsEIP155, IsEIP158 bool
 }
 
 func (c *ChainConfig) Rules(num *big.Int) Rules {
-	return Rules{ChainId: new(big.Int).Set(c.ChainId), IsHomestead: c.IsHomestead(num), IsEIP150: c.IsEIP150(num), IsEIP155: c.IsEIP155(num), IsEIP158: c.IsEIP158(num)}
+	return Rules{ChainId: new(big.Int).Set(c.ChainId), IsEIP155: c.IsEIP155(num), IsEIP158: c.IsEIP158(num)}
 }

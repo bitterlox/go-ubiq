@@ -44,7 +44,6 @@ func ExampleGenerateChain() {
 	)
 
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: new(big.Int),
 	}
 	// Ensure that key1 has some funds in the genesis block.
 	genesis := WriteGenesisBlockForTesting(db, GenesisAccount{addr1, big.NewInt(1000000)})

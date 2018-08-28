@@ -214,9 +214,6 @@ func runVmTest(test VmTest) error {
 
 func RunVm(statedb *state.StateDB, env, exec map[string]string) ([]byte, []*types.Log, *big.Int, error) {
 	chainConfig := &params.ChainConfig{
-		HomesteadBlock: params.MainNetHomesteadBlock,
-		DAOForkBlock:   params.MainNetDAOForkBlock,
-		DAOForkSupport: true,
 	}
 	var (
 		to    = common.HexToAddress(exec["address"])

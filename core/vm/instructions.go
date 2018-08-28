@@ -473,10 +473,8 @@ func opCreate(pc *uint64, env *EVM, contract *Contract, memory *Memory, stack *S
 		input        = memory.Get(offset.Int64(), size.Int64())
 		gas          = new(big.Int).Set(contract.Gas)
 	)
-	if env.ChainConfig().IsEIP150(env.BlockNumber) {
-		gas.Div(gas, n64)
-		gas = gas.Sub(contract.Gas, gas)
-	}
+	gas.Div(gas, n64)
+	gas = gas.Sub(contract.Gas, gas)
 
 	contract.UseGas(gas)
 	_, addr, suberr := env.Create(contract, input, gas, value)
@@ -484,7 +482,7 @@ func opCreate(pc *uint64, env *EVM, contract *Contract, memory *Memory, stack *S
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must
 	// ignore this error and pretend the operation was successful.
-	if env.ChainConfig().IsHomestead(env.BlockNumber) && suberr == ErrCodeStoreOutOfGas {
+	if suberr == ErrCodeStoreOutOfGas {
 		stack.push(new(big.Int))
 	} else if suberr != nil && suberr != ErrCodeStoreOutOfGas {
 		stack.push(new(big.Int))
@@ -559,12 +557,6 @@ func opCallCode(pc *uint64, env *EVM, contract *Contract, memory *Memory, stack 
 }
 
 func opDelegateCall(pc *uint64, env *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	// if not homestead return an error. DELEGATECALL is not supported
-	// during pre-homestead.
-	if !env.ChainConfig().IsHomestead(env.BlockNumber) {
-		return nil, fmt.Errorf("invalid opcode %x", DELEGATECALL)
-	}
-
 	gas, to, inOffset, inSize, outOffset, outSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 
 	toAddr := common.BigToAddress(to)

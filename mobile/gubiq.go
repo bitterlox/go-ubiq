@@ -132,12 +132,9 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 	if config.EthereumEnabled {
 		ethConf := &eth.Config{
 			ChainConfig: &params.ChainConfig{
-				ChainId:        big.NewInt(config.EthereumChainConfig.ChainID),
-				HomesteadBlock: big.NewInt(config.EthereumChainConfig.HomesteadBlock),
-				EIP150Block:    big.NewInt(config.EthereumChainConfig.EIP150Block),
-				EIP150Hash:     config.EthereumChainConfig.EIP150Hash.hash,
-				EIP155Block:    big.NewInt(config.EthereumChainConfig.EIP155Block),
-				EIP158Block:    big.NewInt(config.EthereumChainConfig.EIP158Block),
+				ChainId:     big.NewInt(config.EthereumChainConfig.ChainID),
+				EIP155Block: big.NewInt(config.EthereumChainConfig.EIP155Block),
+				EIP158Block: big.NewInt(config.EthereumChainConfig.EIP158Block),
 			},
 			Genesis:                 config.EthereumGenesis,
 			LightMode:               true,

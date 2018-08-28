@@ -345,11 +345,6 @@ func ValidateHeader(config *params.ChainConfig, pow pow.PoW, header *types.Heade
 			return &BlockNonceErr{header.Number, header.Hash(), header.Nonce.Uint64()}
 		}
 	}
-	if !uncle && config.EIP150Block != nil && config.EIP150Block.Cmp(header.Number) == 0 {
-		if config.EIP150Hash != (common.Hash{}) && config.EIP150Hash != header.Hash() {
-			return ValidationError("Homestead gas reprice fork hash mismatch: have 0x%x, want 0x%x", header.Hash(), config.EIP150Hash)
-		}
-	}
 	return nil
 }
 
@@ -395,11 +390,6 @@ func ValidateHeaderHeaderChain(config *params.ChainConfig, pow pow.PoW, header *
 		// Verify the nonce of the header. Return an error if it's not valid
 		if !pow.Verify(types.NewBlockWithHeader(header)) {
 			return &BlockNonceErr{header.Number, header.Hash(), header.Nonce.Uint64()}
-		}
-	}
-	if !uncle && config.EIP150Block != nil && config.EIP150Block.Cmp(header.Number) == 0 {
-		if config.EIP150Hash != (common.Hash{}) && config.EIP150Hash != header.Hash() {
-			return ValidationError("Homestead gas reprice fork hash mismatch: have 0x%x, want 0x%x", header.Hash(), config.EIP150Hash)
 		}
 	}
 	return nil

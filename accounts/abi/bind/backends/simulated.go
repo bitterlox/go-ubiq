@@ -36,7 +36,7 @@ import (
 )
 
 // Default chain configuration which sets homestead phase at block 0 (i.e. no frontier)
-var chainConfig = &params.ChainConfig{HomesteadBlock: big.NewInt(0), EIP150Block: new(big.Int), EIP158Block: new(big.Int)}
+var chainConfig = &params.ChainConfig{EIP158Block: new(big.Int)}
 
 // This nil assignment ensures compile time that SimulatedBackend implements bind.ContractBackend.
 var _ bind.ContractBackend = (*SimulatedBackend)(nil)

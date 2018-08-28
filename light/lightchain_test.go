@@ -53,7 +53,7 @@ func makeHeaderChain(parent *types.Header, n int, db ethdb.Database, seed int) [
 }
 
 func testChainConfig() *params.ChainConfig {
-	return &params.ChainConfig{HomesteadBlock: big.NewInt(0)}
+	return &params.ChainConfig{}
 }
 
 // newCanonical creates a chain database, and injects a deterministic canonical

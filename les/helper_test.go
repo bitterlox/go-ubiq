@@ -135,7 +135,7 @@ func newTestProtocolManager(lightSync bool, blocks int, generator func(int, *cor
 		pow         = new(core.FakePow)
 		db, _       = ethdb.NewMemDatabase()
 		genesis     = core.WriteGenesisBlockForTesting(db, core.GenesisAccount{Address: testBankAddress, Balance: testBankFunds})
-		chainConfig = &params.ChainConfig{HomesteadBlock: big.NewInt(0)} // homestead set to 0 because of chain maker
+		chainConfig = &params.ChainConfig{}
 		odr         *LesOdr
 		chain       BlockChain
 	)

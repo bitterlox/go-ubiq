@@ -143,9 +143,7 @@ func (pool *TxPool) eventLoop() {
 		case ChainHeadEvent:
 			pool.mu.Lock()
 			if ev.Block != nil {
-				if pool.config.IsHomestead(ev.Block.Number()) {
-					pool.homestead = true
-				}
+				pool.homestead = true
 			}
 
 			pool.resetState()

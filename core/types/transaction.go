@@ -121,10 +121,8 @@ func pickSigner(rules params.Rules) Signer {
 	switch {
 	case rules.IsEIP155:
 		signer = NewEIP155Signer(rules.ChainId)
-	case rules.IsHomestead:
-		signer = HomesteadSigner{}
 	default:
-		signer = FrontierSigner{}
+		signer = HomesteadSigner{}
 	}
 	return signer
 }

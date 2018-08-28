@@ -195,22 +195,19 @@ func gasReturn(gt params.GasTable, env *EVM, contract *Contract, stack *Stack, m
 
 func gasSuicide(gt params.GasTable, env *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize *big.Int) *big.Int {
 	gas := new(big.Int)
-	// EIP150 homestead gas reprice fork:
-	if env.ChainConfig().IsEIP150(env.BlockNumber) {
-		gas.Set(gt.Suicide)
-		var (
-			address = common.BigToAddress(stack.Back(0))
-			eip158  = env.ChainConfig().IsEIP158(env.BlockNumber)
-		)
+	gas.Set(gt.Suicide)
+	var (
+		address = common.BigToAddress(stack.Back(0))
+		eip158  = env.ChainConfig().IsEIP158(env.BlockNumber)
+	)
 
-		if eip158 {
-			// if empty and transfers value
-			if env.StateDB.Empty(address) && env.StateDB.GetBalance(contract.Address()).BitLen() > 0 {
-				gas.Add(gas, gt.CreateBySuicide)
-			}
-		} else if !env.StateDB.Exist(address) {
+	if eip158 {
+		// if empty and transfers value
+		if env.StateDB.Empty(address) && env.StateDB.GetBalance(contract.Address()).BitLen() > 0 {
 			gas.Add(gas, gt.CreateBySuicide)
 		}
+	} else if !env.StateDB.Exist(address) {
+		gas.Add(gas, gt.CreateBySuicide)
 	}
 
 	if !env.StateDB.HasSuicided(contract.Address()) {

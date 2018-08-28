@@ -56,7 +56,7 @@ func newTestProtocolManager(fastSync bool, blocks int, generator func(int, *core
 		pow           = new(core.FakePow)
 		db, _         = ethdb.NewMemDatabase()
 		genesis       = core.WriteGenesisBlockForTesting(db, testBank)
-		chainConfig   = &params.ChainConfig{HomesteadBlock: big.NewInt(0)} // homestead set to 0 because of chain maker
+		chainConfig   = &params.ChainConfig{}
 		blockchain, _ = core.NewBlockChain(db, chainConfig, pow, evmux, vm.Config{})
 	)
 	chain, _ := core.GenerateChain(chainConfig, genesis, db, blocks, generator)

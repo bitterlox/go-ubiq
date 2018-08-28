@@ -37,27 +37,7 @@ type GasTable struct {
 }
 
 var (
-	// GasTableHomestead contain the gas prices for
-	// the homestead phase.
-	GasTableHomestead = GasTable{
-		ExtcodeSize: big.NewInt(20),
-		ExtcodeCopy: big.NewInt(20),
-		Balance:     big.NewInt(20),
-		SLoad:       big.NewInt(50),
-		Calls:       big.NewInt(40),
-		Suicide:     big.NewInt(0),
-		ExpByte:     big.NewInt(10),
-
-		// explicitly set to nil to indicate
-		// this rule does not apply to homestead.
-		CreateBySuicide: nil,
-	}
-
-	// GasTableHomestead contain the gas re-prices for
-	// the homestead phase.
-	//
-	// TODO rename to GasTableEIP150
-	GasTableHomesteadGasRepriceFork = GasTable{
+	GasTableEIP150 = GasTable{
 		ExtcodeSize: big.NewInt(700),
 		ExtcodeCopy: big.NewInt(700),
 		Balance:     big.NewInt(400),

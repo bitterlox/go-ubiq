@@ -37,7 +37,6 @@ import (
 // MakeChainConfig returns a new ChainConfig with the ethereum default chain settings.
 func MakeChainConfig() *params.ChainConfig {
 	return &params.ChainConfig{
-		HomesteadBlock: big.NewInt(0),
 	}
 }
 
