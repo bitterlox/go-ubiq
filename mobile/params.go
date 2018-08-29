@@ -27,9 +27,8 @@ import (
 // MainnetChainConfig returns the chain configurations for the main Ethereum network.
 func MainnetChainConfig() *ChainConfig {
 	return &ChainConfig{
-		ChainID:        params.MainNetChainID.Int64(),
-		EIP155Block:    params.MainNetSpuriousDragon.Int64(),
-		EIP158Block:    params.MainNetSpuriousDragon.Int64(),
+		ChainID:     params.MainNetChainID.Int64(),
+		EIP155Block: params.MainNetSpuriousDragon.Int64(),
 	}
 }
 
@@ -42,9 +41,8 @@ func MainnetGenesis() string {
 // TestnetChainConfig returns the chain configurations for the Ethereum test network.
 func TestnetChainConfig() *ChainConfig {
 	return &ChainConfig{
-		ChainID:        params.TestNetChainID.Int64(),
-		EIP155Block:    params.TestNetSpuriousDragon.Int64(),
-		EIP158Block:    params.TestNetSpuriousDragon.Int64(),
+		ChainID:     params.TestNetChainID.Int64(),
+		EIP155Block: params.TestNetSpuriousDragon.Int64(),
 	}
 }
 
@@ -55,9 +53,8 @@ func TestnetGenesis() string {
 
 // ChainConfig is the core config which determines the blockchain settings.
 type ChainConfig struct {
-	ChainID        int64 // Chain ID for replay protection
-	EIP155Block    int64 // Replay protection switch block
-	EIP158Block    int64 // Empty account pruning switch block
+	ChainID     int64 // Chain ID for replay protection
+	EIP155Block int64 // Replay protection switch block
 }
 
 // NewChainConfig creates a new chain configuration that transitions immediately

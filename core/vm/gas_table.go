@@ -144,13 +144,8 @@ func gasCall(gt params.GasTable, env *EVM, contract *Contract, stack *Stack, mem
 	transfersValue := stack.Back(2).BitLen() > 0
 	var (
 		address = common.BigToAddress(stack.Back(1))
-		eip158  = env.ChainConfig().IsEIP158(env.BlockNumber)
 	)
-	if eip158 {
-		if env.StateDB.Empty(address) && transfersValue {
-			gas.Add(gas, params.CallNewAccountGas)
-		}
-	} else if !env.StateDB.Exist(address) {
+	if env.StateDB.Empty(address) && transfersValue {
 		gas.Add(gas, params.CallNewAccountGas)
 	}
 	if transfersValue {
@@ -198,15 +193,10 @@ func gasSuicide(gt params.GasTable, env *EVM, contract *Contract, stack *Stack, 
 	gas.Set(gt.Suicide)
 	var (
 		address = common.BigToAddress(stack.Back(0))
-		eip158  = env.ChainConfig().IsEIP158(env.BlockNumber)
 	)
 
-	if eip158 {
-		// if empty and transfers value
-		if env.StateDB.Empty(address) && env.StateDB.GetBalance(contract.Address()).BitLen() > 0 {
-			gas.Add(gas, gt.CreateBySuicide)
-		}
-	} else if !env.StateDB.Exist(address) {
+	// if empty and transfers value
+	if env.StateDB.Empty(address) && env.StateDB.GetBalance(contract.Address()).BitLen() > 0 {
 		gas.Add(gas, gt.CreateBySuicide)
 	}
 

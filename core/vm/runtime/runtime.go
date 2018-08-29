@@ -54,7 +54,6 @@ func setDefaults(cfg *Config) {
 		cfg.ChainConfig = &params.ChainConfig{
 			ChainId:     big.NewInt(8),
 			EIP155Block: new(big.Int),
-			EIP158Block: new(big.Int),
 		}
 	}
 

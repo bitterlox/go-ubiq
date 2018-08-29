@@ -36,8 +36,7 @@ import (
 
 // MakeChainConfig returns a new ChainConfig with the ethereum default chain settings.
 func MakeChainConfig() *params.ChainConfig {
-	return &params.ChainConfig{
-	}
+	return &params.ChainConfig{}
 }
 
 // FakePow is a non-validating proof of work implementation.
@@ -191,7 +190,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 			gen(i, b)
 		}
 		AccumulateRewards(statedb, h, b.uncles)
-		root, err := statedb.Commit(config.IsEIP158(h.Number))
+		root, err := statedb.Commit(true)
 		if err != nil {
 			panic(fmt.Sprintf("state write error: %v", err))
 		}
@@ -220,7 +219,7 @@ func makeHeader(config *params.ChainConfig, parent *types.Block, state *state.St
 		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 	}
 	return &types.Header{
-		Root:       state.IntermediateRoot(config.IsEIP158(parent.Number())),
+		Root:       state.IntermediateRoot(true),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
 		Difficulty: CalcDifficultyLegacy(MakeChainConfig(), time.Uint64(), new(big.Int).Sub(time, big.NewInt(10)).Uint64(), parent.Number(), parent.Difficulty()),

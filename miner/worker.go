@@ -282,7 +282,7 @@ func (self *worker) wait() {
 				}
 				go self.mux.Post(core.NewMinedBlockEvent{Block: block})
 			} else {
-				work.state.Commit(self.config.IsEIP158(block.Number()))
+				work.state.Commit(true)
 				parent := self.chain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 				if parent == nil {
 					glog.V(logger.Error).Infoln("Invalid block found during mining")
@@ -486,7 +486,7 @@ func (self *worker) commitNewWork() {
 	if atomic.LoadInt32(&self.mining) == 1 {
 		// commit state root after all state transitions.
 		core.AccumulateRewards(work.state, header, uncles)
-		header.Root = work.state.IntermediateRoot(self.config.IsEIP158(header.Number))
+		header.Root = work.state.IntermediateRoot(true)
 	}
 
 	// create the new block whose nonce will be mined.

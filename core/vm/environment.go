@@ -127,7 +127,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas,
 		snapshot = evm.StateDB.Snapshot()
 	)
 	if !evm.StateDB.Exist(addr) {
-		if PrecompiledContracts[addr] == nil && evm.ChainConfig().IsEIP158(evm.BlockNumber) && value.BitLen() == 0 {
+		if PrecompiledContracts[addr] == nil && value.BitLen() == 0 {
 			caller.ReturnGas(gas)
 			return nil, nil
 		}
@@ -270,9 +270,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas, value *big.Int) (re
 	snapshot := evm.StateDB.Snapshot()
 	contractAddr = crypto.CreateAddress(caller.Address(), nonce)
 	to := evm.StateDB.CreateAccount(contractAddr)
-	if evm.ChainConfig().IsEIP158(evm.BlockNumber) {
-		evm.StateDB.SetNonce(contractAddr, 1)
-	}
+	evm.StateDB.SetNonce(contractAddr, 1)
 	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
 
 	// initialise a new contract and set the code that is to be used by the

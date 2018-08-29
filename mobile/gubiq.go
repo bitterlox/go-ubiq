@@ -134,7 +134,6 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 			ChainConfig: &params.ChainConfig{
 				ChainId:     big.NewInt(config.EthereumChainConfig.ChainID),
 				EIP155Block: big.NewInt(config.EthereumChainConfig.EIP155Block),
-				EIP158Block: big.NewInt(config.EthereumChainConfig.EIP158Block),
 			},
 			Genesis:                 config.EthereumGenesis,
 			LightMode:               true,

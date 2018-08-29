@@ -216,7 +216,7 @@ func RunState(chainConfig *params.ChainConfig, statedb *state.StateDB, env, tx m
 	if core.IsNonceErr(err) || core.IsInvalidTxErr(err) || core.IsGasLimitErr(err) {
 		statedb.RevertToSnapshot(snapshot)
 	}
-	statedb.Commit(chainConfig.IsEIP158(environment.Context.BlockNumber))
+	statedb.Commit(true)
 
 	return ret, statedb.Logs(), gasUsed, err
 }

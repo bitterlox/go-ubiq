@@ -859,7 +859,6 @@ func MakeChainConfigFromDb(ctx *cli.Context, db ethdb.Database) *params.ChainCon
 		} else {
 			// DoS state cleanup fork
 			config.EIP155Block = params.MainNetSpuriousDragon
-			config.EIP158Block = params.MainNetSpuriousDragon
 			config.ChainId = params.MainNetChainID
 		}
 	}
