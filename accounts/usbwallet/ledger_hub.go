@@ -18,8 +18,6 @@
 // wallets. The wire protocol spec can be found in the Ledger Blue GitHub repo:
 // https://raw.githubusercontent.com/LedgerHQ/blue-app-eth/master/doc/ethapp.asc
 
-// +build !ios
-
 package usbwallet
 
 import (
@@ -30,6 +28,7 @@ import (
 	"github.com/karalabe/hid"
 	"github.com/ubiq/go-ubiq/accounts"
 	"github.com/ubiq/go-ubiq/event"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 // LedgerScheme is the protocol scheme prefixing account and wallet URLs.
@@ -122,7 +121,7 @@ func (hub *LedgerHub) refreshWallets() {
 		}
 		// If there are no more wallets or the device is before the next, wrap new wallet
 		if len(hub.wallets) == 0 || hub.wallets[0].URL().Cmp(url) > 0 {
-			wallet := &ledgerWallet{url: &url, info: ledger}
+			wallet := &ledgerWallet{url: &url, info: ledger, log: log.New("url", url)}
 
 			events = append(events, accounts.WalletEvent{Wallet: wallet, Arrive: true})
 			wallets = append(wallets, wallet)

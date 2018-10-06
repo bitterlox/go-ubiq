@@ -18,15 +18,15 @@
 package metrics
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/exp"
+	"github.com/ubiq/go-ubiq/log"
 )
 
 // MetricsEnabledFlag is the CLI flag name to use to enable metrics collections.
@@ -41,7 +41,7 @@ var Enabled = false
 func init() {
 	for _, arg := range os.Args {
 		if strings.TrimLeft(arg, "-") == MetricsEnabledFlag {
-			glog.V(logger.Info).Infof("Enabling metrics collection")
+			log.Info(fmt.Sprintf("Enabling metrics collection"))
 			Enabled = true
 		}
 	}
@@ -102,7 +102,7 @@ func CollectProcessMetrics(refresh time.Duration) {
 		diskWrites = metrics.GetOrRegisterMeter("system/disk/writecount", metrics.DefaultRegistry)
 		diskWriteBytes = metrics.GetOrRegisterMeter("system/disk/writedata", metrics.DefaultRegistry)
 	} else {
-		glog.V(logger.Debug).Infof("failed to read disk metrics: %v", err)
+		log.Debug(fmt.Sprintf("failed to read disk metrics: %v", err))
 	}
 	// Iterate loading the different stats and updating the meters
 	for i := 1; ; i++ {

@@ -24,8 +24,7 @@ import (
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/crypto"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/rlp"
 )
 
@@ -109,9 +108,9 @@ func (self *StateObject) MarkForDeletion() {
 	self.remove = true
 	self.dirty = true
 
-	if glog.V(logger.Core) {
-		glog.Infof("%x: #%d %v X\n", self.Address(), self.nonce, self.balance)
-	}
+	log.Debug("", "msg", log.Lazy{Fn: func() string {
+		return fmt.Sprintf("%x: #%d %v X\n", self.Address(), self.nonce, self.balance)
+	}})
 }
 
 // getAddr gets the storage value at the given address from the trie
@@ -158,18 +157,18 @@ func (self *StateObject) SetState(k, value common.Hash) {
 func (c *StateObject) AddBalance(amount *big.Int) {
 	c.SetBalance(new(big.Int).Add(c.balance, amount))
 
-	if glog.V(logger.Core) {
-		glog.Infof("%x: #%d %v (+ %v)\n", c.Address(), c.nonce, c.balance, amount)
-	}
+	log.Debug("", "msg", log.Lazy{Fn: func() string {
+		return fmt.Sprintf("%x: #%d %v (+ %v)\n", c.Address(), c.nonce, c.balance, amount)
+	}})
 }
 
 // SubBalance subtracts the given amount from the account balance
 func (c *StateObject) SubBalance(amount *big.Int) {
 	c.SetBalance(new(big.Int).Sub(c.balance, amount))
 
-	if glog.V(logger.Core) {
-		glog.Infof("%x: #%d %v (- %v)\n", c.Address(), c.nonce, c.balance, amount)
-	}
+	log.Debug("", "msg", log.Lazy{Fn: func() string {
+		return fmt.Sprintf("%x: #%d %v (- %v)\n", c.Address(), c.nonce, c.balance, amount)
+	}})
 }
 
 // SetBalance sets the account balance to the given amount
@@ -203,7 +202,7 @@ func (self *StateObject) Copy() *StateObject {
 
 // empty returns whether the account is considered empty.
 func (self *StateObject) empty() bool {
-	return self.nonce == 0 && self.balance.BitLen() == 0 && bytes.Equal(self.codeHash, emptyCodeHash)
+	return self.nonce == 0 && self.balance.Sign() == 0 && bytes.Equal(self.codeHash, emptyCodeHash)
 }
 
 // Balance returns the account balance

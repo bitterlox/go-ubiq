@@ -24,7 +24,6 @@ import (
 	"math/big"
 	"path/filepath"
 
-	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/eth"
 	"github.com/ubiq/go-ubiq/ethclient"
 	"github.com/ubiq/go-ubiq/ethstats"
@@ -32,7 +31,7 @@ import (
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/p2p/nat"
 	"github.com/ubiq/go-ubiq/params"
-	"github.com/ubiq/go-ubiq/whisper/whisperv2"
+	whisper "github.com/ubiq/go-ubiq/whisper/whisperv2"
 )
 
 // NodeConfig represents the collection of configuration values to fine tune the Gubiq
@@ -139,9 +138,9 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 			LightMode:               true,
 			DatabaseCache:           config.EthereumDatabaseCache,
 			NetworkId:               config.EthereumNetworkID,
-			GasPrice:                new(big.Int).Mul(big.NewInt(20), common.Shannon),
-			GpoMinGasPrice:          new(big.Int).Mul(big.NewInt(20), common.Shannon),
-			GpoMaxGasPrice:          new(big.Int).Mul(big.NewInt(500), common.Shannon),
+			GasPrice:                new(big.Int).SetUint64(20 * params.Shannon),
+			GpoMinGasPrice:          new(big.Int).SetUint64(50 * params.Shannon),
+			GpoMaxGasPrice:          new(big.Int).SetUint64(500 * params.Shannon),
 			GpoFullBlockRatio:       80,
 			GpobaseStepDown:         10,
 			GpobaseStepUp:           100,
@@ -166,7 +165,7 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 	}
 	// Register the Whisper protocol if requested
 	if config.WhisperEnabled {
-		if err := rawStack.Register(func(*node.ServiceContext) (node.Service, error) { return whisperv2.New(), nil }); err != nil {
+		if err := rawStack.Register(func(*node.ServiceContext) (node.Service, error) { return whisper.New(), nil }); err != nil {
 			return nil, fmt.Errorf("whisper init: %v", err)
 		}
 	}

@@ -24,13 +24,14 @@ import (
 	"os"
 
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/common/math"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
 	"github.com/ubiq/go-ubiq/crypto"
 	"github.com/ubiq/go-ubiq/ethdb"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/params"
 )
 
@@ -40,7 +41,7 @@ var (
 )
 
 func init() {
-	glog.SetV(0)
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlCrit, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 	if os.Getenv("JITVM") == "true" {
 		ForceJit = true
 		EnableJit = true
@@ -70,7 +71,7 @@ func checkLogs(tlog []Log, logs []*types.Log) error {
 					}
 				}
 			}
-			genBloom := common.LeftPadBytes(types.LogsBloom([]*types.Log{logs[i]}).Bytes(), 256)
+			genBloom := math.PaddedBigBytes(types.LogsBloom([]*types.Log{logs[i]}), 256)
 
 			if !bytes.Equal(genBloom, common.Hex2Bytes(log.BloomF)) {
 				return fmt.Errorf("bloom mismatch")
@@ -119,8 +120,8 @@ func insertAccount(state *state.StateDB, saddr string, account Account) {
 	}
 	addr := common.HexToAddress(saddr)
 	state.SetCode(addr, common.Hex2Bytes(account.Code))
-	state.SetNonce(addr, common.Big(account.Nonce).Uint64())
-	state.SetBalance(addr, common.Big(account.Balance))
+	state.SetNonce(addr, math.MustParseUint64(account.Nonce))
+	state.SetBalance(addr, math.MustParseBig256(account.Balance))
 	for a, v := range account.Storage {
 		state.SetState(addr, common.HexToHash(a), common.HexToHash(v))
 	}
@@ -152,10 +153,10 @@ type VmTest struct {
 func NewEVMEnvironment(vmTest bool, chainConfig *params.ChainConfig, statedb *state.StateDB, envValues map[string]string, tx map[string]string) (*vm.EVM, core.Message) {
 	var (
 		data  = common.FromHex(tx["data"])
-		gas   = common.Big(tx["gasLimit"])
-		price = common.Big(tx["gasPrice"])
-		value = common.Big(tx["value"])
-		nonce = common.Big(tx["nonce"]).Uint64()
+		gas   = math.MustParseBig256(tx["gasLimit"])
+		price = math.MustParseBig256(tx["gasPrice"])
+		value = math.MustParseBig256(tx["value"])
+		nonce = math.MustParseUint64(tx["nonce"])
 	)
 
 	origin := common.HexToAddress(tx["caller"])
@@ -198,10 +199,10 @@ func NewEVMEnvironment(vmTest bool, chainConfig *params.ChainConfig, statedb *st
 
 		Origin:      origin,
 		Coinbase:    common.HexToAddress(envValues["currentCoinbase"]),
-		BlockNumber: common.Big(envValues["currentNumber"]),
-		Time:        common.Big(envValues["currentTimestamp"]),
-		GasLimit:    common.Big(envValues["currentGasLimit"]),
-		Difficulty:  common.Big(envValues["currentDifficulty"]),
+		BlockNumber: math.MustParseBig256(envValues["currentNumber"]),
+		Time:        math.MustParseBig256(envValues["currentTimestamp"]),
+		GasLimit:    math.MustParseBig256(envValues["currentGasLimit"]),
+		Difficulty:  math.MustParseBig256(envValues["currentDifficulty"]),
 		GasPrice:    price,
 	}
 	if context.GasPrice == nil {

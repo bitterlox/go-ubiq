@@ -32,8 +32,7 @@ import (
 	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/ethdb"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/trie"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -118,7 +117,7 @@ func initGenesis(ctx *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("failed to write genesis block: %v", err)
 	}
-	glog.V(logger.Info).Infof("successfully wrote genesis block and/or chain rule set: %x", block.Hash())
+	log.Info("Successfully wrote genesis state", "hash", block.Hash())
 	return nil
 }
 
@@ -243,14 +242,6 @@ func removeDB(ctx *cli.Context) error {
 		fmt.Printf("Removed in %v\n", time.Since(start))
 	}
 	return nil
-}
-
-func dbDirectory(db ethdb.Database) string {
-	ldb, ok := db.(*ethdb.LDBDatabase)
-	if !ok {
-		return ""
-	}
-	return ldb.Path()
 }
 
 func dump(ctx *cli.Context) error {

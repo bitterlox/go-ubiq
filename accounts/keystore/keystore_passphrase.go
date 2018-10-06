@@ -35,10 +35,11 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/pborman/uuid"
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/common/math"
 	"github.com/ubiq/go-ubiq/crypto"
 	"github.com/ubiq/go-ubiq/crypto/randentropy"
-	"github.com/pborman/uuid"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
@@ -115,8 +116,7 @@ func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
 		return nil, err
 	}
 	encryptKey := derivedKey[:16]
-	keyBytes0 := crypto.FromECDSA(key.PrivateKey)
-	keyBytes := common.LeftPadBytes(keyBytes0, 32)
+	keyBytes := math.PaddedBigBytes(key.PrivateKey.D, 32)
 
 	iv := randentropy.GetEntropyCSPRNG(aes.BlockSize) // 16
 	cipherText, err := aesCTRXOR(encryptKey, keyBytes, iv)

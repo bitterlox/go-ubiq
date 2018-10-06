@@ -32,8 +32,7 @@ import (
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/ethdb"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/pow"
 )
@@ -103,7 +102,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, getValid
 		if err != nil {
 			return nil, err
 		}
-		glog.V(logger.Info).Infoln("WARNING: Wrote default ubiq genesis block")
+		log.Warn("Wrote default Ubiq genesis block")
 		hc.genesisHeader = genesisBlock.Header()
 	}
 
@@ -156,12 +155,11 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	// Irrelevant of the canonical status, write the td and header to the database
 	if err := hc.WriteTd(hash, number, externTd); err != nil {
-		glog.Fatalf("failed to write header total difficulty: %v", err)
+		log.Crit("Failed to write header total difficulty", "err", err)
 	}
 	if err := WriteHeader(hc.chainDb, header); err != nil {
-		glog.Fatalf("failed to write header contents: %v", err)
+		log.Crit("Failed to write header content", "err", err)
 	}
-
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
 	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
@@ -187,15 +185,13 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 			headNumber = headHeader.Number.Uint64() - 1
 			headHeader = hc.GetHeader(headHash, headNumber)
 		}
-
 		// Extend the canonical chain with the new header
 		if err := WriteCanonicalHash(hc.chainDb, hash, number); err != nil {
-			glog.Fatalf("failed to insert header number: %v", err)
+			log.Crit("Failed to insert header number", "err", err)
 		}
 		if err := WriteHeadHeaderHash(hc.chainDb, hash); err != nil {
-			glog.Fatalf("failed to insert head header hash: %v", err)
+			log.Crit("Failed to insert head header hash", "err", err)
 		}
-
 		hc.currentHeaderHash, hc.currentHeader = hash, types.CopyHeader(header)
 
 		status = CanonStatTy
@@ -229,11 +225,11 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, checkFreq int, w
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 || chain[i].ParentHash != chain[i-1].Hash() {
 			// Chain broke ancestry, log a messge (programming error) and skip insertion
-			failure := fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])",
-				i-1, chain[i-1].Number.Uint64(), chain[i-1].Hash().Bytes()[:4], i, chain[i].Number.Uint64(), chain[i].Hash().Bytes()[:4], chain[i].ParentHash.Bytes()[:4])
+			log.Error("Non contiguous header insert", "number", chain[i].Number, "hash", chain[i].Hash(),
+				"parent", chain[i].ParentHash, "prevnumber", chain[i-1].Number, "prevhash", chain[i-1].Hash())
 
-			glog.V(logger.Error).Info(failure.Error())
-			return 0, failure
+			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].Number,
+				chain[i-1].Hash().Bytes()[:4], i, chain[i].Number, chain[i].Hash().Bytes()[:4], chain[i].ParentHash[:4])
 		}
 	}
 	// Collect some import statistics to report on
@@ -318,7 +314,7 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, checkFreq int, w
 	for i, header := range chain {
 		// Short circuit insertion if shutting down
 		if hc.procInterrupt() {
-			glog.V(logger.Debug).Infoln("premature abort during header chain processing")
+			log.Debug("Premature abort during headers processing")
 			break
 		}
 		hash := header.Hash()
@@ -334,13 +330,9 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, checkFreq int, w
 		stats.processed++
 	}
 	// Report some public statistics so the user has a clue what's going on
-	first, last := chain[0], chain[len(chain)-1]
-
-	ignored := ""
-	if stats.ignored > 0 {
-		ignored = fmt.Sprintf(" (%d ignored)", stats.ignored)
-	}
-	glog.V(logger.Info).Infof("imported %4d headers%s in %9v. #%v [%x… / %x…]", stats.processed, ignored, common.PrettyDuration(time.Since(start)), last.Number, first.Hash().Bytes()[:4], last.Hash().Bytes()[:4])
+	last := chain[len(chain)-1]
+	log.Info("Imported new block headers", "count", stats.processed, "elapsed", common.PrettyDuration(time.Since(start)),
+		"number", last.Number, "hash", last.Hash(), "ignored", stats.ignored)
 
 	return 0, nil
 }
@@ -361,7 +353,7 @@ func (hc *HeaderChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []co
 			break
 		}
 		chain = append(chain, next)
-		if header.Number.Cmp(common.Big0) == 0 {
+		if header.Number.Sign() == 0 {
 			break
 		}
 	}
@@ -501,7 +493,7 @@ func (hc *HeaderChain) CurrentHeader() *types.Header {
 // SetCurrentHeader sets the current head header of the canonical chain.
 func (hc *HeaderChain) SetCurrentHeader(head *types.Header) {
 	if err := WriteHeadHeaderHash(hc.chainDb, head.Hash()); err != nil {
-		glog.Fatalf("failed to insert head header hash: %v", err)
+		log.Crit("Failed to insert head header hash", "err", err)
 	}
 	hc.currentHeader = head
 	hc.currentHeaderHash = head.Hash()
@@ -544,7 +536,7 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 	hc.currentHeaderHash = hc.currentHeader.Hash()
 
 	if err := WriteHeadHeaderHash(hc.chainDb, hc.currentHeaderHash); err != nil {
-		glog.Fatalf("failed to reset head header hash: %v", err)
+		log.Crit("Failed to reset head header hash", "err", err)
 	}
 }
 

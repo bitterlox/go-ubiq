@@ -41,8 +41,7 @@ import (
 	"github.com/ubiq/go-ubiq/ethstats"
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/les"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/metrics"
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/p2p/discover"
@@ -180,10 +179,10 @@ var (
 		Usage: "Number of CPU threads to use for mining",
 		Value: runtime.NumCPU(),
 	}
-	TargetGasLimitFlag = cli.StringFlag{
+	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
 		Usage: "Target gas limit sets the artificial target gas floor for the blocks to mine",
-		Value: params.GenesisGasLimit.String(),
+		Value: params.GenesisGasLimit.Uint64(),
 	}
 	AutoDAGFlag = cli.BoolFlag{
 		Name:  "autodag",
@@ -194,10 +193,10 @@ var (
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
-	GasPriceFlag = cli.StringFlag{
+	GasPriceFlag = BigFlag{
 		Name:  "gasprice",
 		Usage: "Minimal gas price to accept for mining a transactions",
-		Value: new(big.Int).Mul(big.NewInt(20), common.Shannon).String(),
+		Value: big.NewInt(20 * params.Shannon),
 	}
 	ExtraDataFlag = cli.StringFlag{
 		Name:  "extradata",
@@ -378,15 +377,15 @@ var (
 	}
 
 	// Gas price oracle settings
-	GpoMinGasPriceFlag = cli.StringFlag{
+	GpoMinGasPriceFlag = BigFlag{
 		Name:  "gpomin",
 		Usage: "Minimum suggested gas price",
-		Value: new(big.Int).Mul(big.NewInt(20), common.Shannon).String(),
+		Value: big.NewInt(20 * params.Shannon),
 	}
-	GpoMaxGasPriceFlag = cli.StringFlag{
+	GpoMaxGasPriceFlag = BigFlag{
 		Name:  "gpomax",
 		Usage: "Maximum suggested gas price",
-		Value: new(big.Int).Mul(big.NewInt(500), common.Shannon).String(),
+		Value: big.NewInt(500 * params.Shannon),
 	}
 	GpoFullBlockRatioFlag = cli.IntFlag{
 		Name:  "gpofull",
@@ -488,7 +487,7 @@ func MakeBootstrapNodes(ctx *cli.Context) []*discover.Node {
 	for _, url := range urls {
 		node, err := discover.ParseNode(url)
 		if err != nil {
-			glog.V(logger.Error).Infof("Bootstrap URL %s: %v\n", url, err)
+			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 			continue
 		}
 		bootnodes = append(bootnodes, node)
@@ -508,7 +507,7 @@ func MakeBootstrapNodesV5(ctx *cli.Context) []*discv5.Node {
 	for _, url := range urls {
 		node, err := discv5.ParseNode(url)
 		if err != nil {
-			glog.V(logger.Error).Infof("Bootstrap URL %s: %v\n", url, err)
+			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 			continue
 		}
 		bootnodes = append(bootnodes, node)
@@ -605,7 +604,7 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 func MakeEtherbase(ks *keystore.KeyStore, ctx *cli.Context) common.Address {
 	accounts := ks.Accounts()
 	if !ctx.GlobalIsSet(EtherbaseFlag.Name) && len(accounts) == 0 {
-		glog.V(logger.Error).Infoln("WARNING: No etherbase set and no accounts found as default")
+		log.Warn("No etherbase set and no accounts found as default")
 		return common.Address{}
 	}
 	etherbase := ctx.GlobalString(EtherbaseFlag.Name)
@@ -737,9 +736,9 @@ func RegisterEthService(ctx *cli.Context, stack *node.Node, extra []byte) {
 		MinerThreads:            ctx.GlobalInt(MinerThreadsFlag.Name),
 		ExtraData:               MakeMinerExtra(extra, ctx),
 		DocRoot:                 ctx.GlobalString(DocRootFlag.Name),
-		GasPrice:                common.String2Big(ctx.GlobalString(GasPriceFlag.Name)),
-		GpoMinGasPrice:          common.String2Big(ctx.GlobalString(GpoMinGasPriceFlag.Name)),
-		GpoMaxGasPrice:          common.String2Big(ctx.GlobalString(GpoMaxGasPriceFlag.Name)),
+		GasPrice:                GlobalBig(ctx, GasPriceFlag.Name),
+		GpoMinGasPrice:          GlobalBig(ctx, GpoMinGasPriceFlag.Name),
+		GpoMaxGasPrice:          GlobalBig(ctx, GpoMaxGasPriceFlag.Name),
 		GpoFullBlockRatio:       ctx.GlobalInt(GpoFullBlockRatioFlag.Name),
 		GpobaseStepDown:         ctx.GlobalInt(GpobaseStepDownFlag.Name),
 		GpobaseStepUp:           ctx.GlobalInt(GpobaseStepUpFlag.Name),
@@ -772,7 +771,7 @@ func RegisterEthService(ctx *cli.Context, stack *node.Node, extra []byte) {
 		if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			return les.New(ctx, ethConf)
 		}); err != nil {
-			Fatalf("Failed to register the Ethereum light node service: %v", err)
+			Fatalf("Failed to register the Ubiq light node service: %v", err)
 		}
 	} else {
 		if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
@@ -783,7 +782,7 @@ func RegisterEthService(ctx *cli.Context, stack *node.Node, extra []byte) {
 			}
 			return fullNode, err
 		}); err != nil {
-			Fatalf("Failed to register the Ethereum full node service: %v", err)
+			Fatalf("Failed to register the Ubiq full node service: %v", err)
 		}
 	}
 }
@@ -808,13 +807,13 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 
 		return ethstats.New(url, ethServ, lesServ)
 	}); err != nil {
-		Fatalf("Failed to register the Ethereum Stats service: %v", err)
+		Fatalf("Failed to register the Ubiq Stats service: %v", err)
 	}
 }
 
 // SetupNetwork configures the system for either the main net or some test network.
 func SetupNetwork(ctx *cli.Context) {
-	params.TargetGasLimit = common.String2Big(ctx.GlobalString(TargetGasLimitFlag.Name))
+	params.TargetGasLimit = new(big.Int).SetUint64(ctx.GlobalUint64(TargetGasLimitFlag.Name))
 }
 
 // MakeChainConfig reads the chain configuration from the database in ctx.Datadir.
@@ -856,6 +855,8 @@ func MakeChainConfigFromDb(ctx *cli.Context, db ethdb.Database) *params.ChainCon
 	if defaults {
 		if ctx.GlobalBool(TestNetFlag.Name) {
 			config = params.TestnetChainConfig
+		} else if ctx.GlobalBool(DevModeFlag.Name) {
+			config = params.AllProtocolChanges
 		} else {
 			// DoS state cleanup fork
 			config.EIP155Block = params.MainNetSpuriousDragon
@@ -896,10 +897,9 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 	if ctx.GlobalBool(TestNetFlag.Name) {
 		_, err := core.WriteTestNetGenesisBlock(chainDb)
 		if err != nil {
-			glog.Fatalln(err)
+			Fatalf("Failed to write testnet genesis: %v", err)
 		}
 	}
-
 	chainConfig := MakeChainConfigFromDb(ctx, chainDb)
 
 	pow := pow.PoW(core.FakePow{})

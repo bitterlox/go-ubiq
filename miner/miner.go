@@ -30,8 +30,7 @@ import (
 	"github.com/ubiq/go-ubiq/eth/downloader"
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/pow"
 )
@@ -87,7 +86,7 @@ out:
 			if self.Mining() {
 				self.Stop()
 				atomic.StoreInt32(&self.shouldStart, 1)
-				glog.V(logger.Info).Infoln("Mining operation aborted due to sync operation")
+				log.Info(fmt.Sprint("Mining operation aborted due to sync operation"))
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
@@ -124,7 +123,7 @@ func (self *Miner) Start(coinbase common.Address, threads int) {
 	self.threads = threads
 
 	if atomic.LoadInt32(&self.canStart) == 0 {
-		glog.V(logger.Info).Infoln("Can not start mining operation due to network sync (starts when finished)")
+		log.Info(fmt.Sprint("Can not start mining operation due to network sync (starts when finished)"))
 		return
 	}
 	atomic.StoreInt32(&self.mining, 1)
@@ -133,7 +132,7 @@ func (self *Miner) Start(coinbase common.Address, threads int) {
 		self.worker.register(NewCpuAgent(i, self.pow))
 	}
 
-	glog.V(logger.Info).Infof("Starting mining operation (CPU=%d TOT=%d)\n", threads, len(self.worker.agents))
+	log.Info(fmt.Sprintf("Starting mining operation (CPU=%d TOT=%d)\n", threads, len(self.worker.agents)))
 	self.worker.start()
 	self.worker.commitNewWork()
 }
@@ -171,7 +170,7 @@ func (self *Miner) HashRate() (tot int64) {
 }
 
 func (self *Miner) SetExtra(extra []byte) error {
-	if uint64(len(extra)) > params.MaximumExtraDataSize.Uint64() {
+	if uint64(len(extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("Extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
 	}
 	self.worker.setExtra(extra)

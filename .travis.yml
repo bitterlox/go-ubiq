@@ -10,6 +10,11 @@ matrix:
     # These are the latest Go versions, only run go vet and misspell on these
     - os: linux
       dist: trusty
+      go: 1.7.5
+
+    # These are the latest Go versions, only run go vet and misspell on these
+    - os: linux
+      dist: trusty
       go: 1.8
       script:
         - go run build/ci.go install
@@ -54,6 +59,51 @@ matrix:
         - GOARM=6 go run build/ci.go archive -arch arm -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
         - GOARM=7 CC=arm-linux-gnueabihf-gcc go run build/ci.go install -arch arm
         - GOARM=7 go run build/ci.go archive -arch arm -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
+        # ARM64 linux builds are broken in Go 1.8 (https://github.com/golang/go/issues/19137), reenable in Go 1.8.1
+        # - CC=aarch64-linux-gnu-gcc go run build/ci.go install -arch arm64
+        # - go run build/ci.go archive -arch arm64 -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
+
+    # This builder does the Linux Azure MIPS xgo uploads
+    - os: linux
+      dist: trusty
+      sudo: required
+      services:
+        - docker
+      go: 1.8
+      env:
+        - azure-linux-mips
+      script:
+        - go run build/ci.go xgo --alltools -- --targets=linux/mips --ldflags '-extldflags "-static"' -v
+        - for bin in build/bin/*-linux-mips; do mv -f "${bin}" "${bin/-linux-mips/}"; done
+        - go run build/ci.go archive -arch mips -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
+
+        - go run build/ci.go xgo --alltools -- --targets=linux/mipsle --ldflags '-extldflags "-static"' -v
+        - for bin in build/bin/*-linux-mipsle; do mv -f "${bin}" "${bin/-linux-mipsle/}"; done
+        - go run build/ci.go archive -arch mipsle -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
+
+        - go run build/ci.go xgo --alltools -- --targets=linux/mips64 --ldflags '-extldflags "-static"' -v
+        - for bin in build/bin/*-linux-mips64; do mv -f "${bin}" "${bin/-linux-mips64/}"; done
+        - go run build/ci.go archive -arch mips64 -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
+
+        - go run build/ci.go xgo --alltools -- --targets=linux/mips64le --ldflags '-extldflags "-static"' -v
+        - for bin in build/bin/*-linux-mips64le; do mv -f "${bin}" "${bin/-linux-mips64le/}"; done
+        - go run build/ci.go archive -arch mips64le -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
+
+    # This builder is a temporary fallback for building ARM64 while Go 1.8 is fixed
+    - os: linux
+      dist: trusty
+      sudo: required
+      go: 1.7.5
+      env:
+        - azure-linux-arm64-fallback
+      addons:
+        apt:
+          packages:
+            - gcc-multilib
+      script:
+        - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+        - sudo ln -s /usr/include/asm-generic /usr/include/asm
+
         - CC=aarch64-linux-gnu-gcc go run build/ci.go install -arch arm64
         - go run build/ci.go archive -arch arm64 -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
 
@@ -77,10 +127,10 @@ matrix:
         - azure-android
         - maven-android
       before_install:
-        - curl https://storage.googleapis.com/golang/go1.8rc3.linux-amd64.tar.gz | tar -xz
+        - curl https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz | tar -xz
         - export PATH=`pwd`/go/bin:$PATH
         - export GOROOT=`pwd`/go
-        - export GOPATH=$HOME/go # Drop post Go 1.8
+        - export GOPATH=$HOME/go
       script:
         # Build the Android archive and upload it to Maven Central and Azure
         - curl https://dl.google.com/android/repository/android-ndk-r13b-linux-x86_64.zip -o android-ndk-r13b.zip
@@ -120,7 +170,7 @@ install:
   - go get golang.org/x/tools/cmd/cover
 script:
   - go run build/ci.go install
-  - go run build/ci.go test -coverage -vet -misspell
+  - go run build/ci.go test -coverage
 
 notifications:
   webhooks:

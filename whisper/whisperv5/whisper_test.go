@@ -26,7 +26,7 @@ import (
 )
 
 func TestWhisperBasic(t *testing.T) {
-	w := NewWhisper(nil)
+	w := New()
 	p := w.Protocols()
 	shh := p[0]
 	if shh.Name != ProtocolName {
@@ -44,7 +44,7 @@ func TestWhisperBasic(t *testing.T) {
 	if uint64(w.Version()) != ProtocolVersion {
 		t.Fatalf("failed whisper Version: %v.", shh.Version)
 	}
-	if w.GetFilter(0) != nil {
+	if w.GetFilter("non-existent") != nil {
 		t.Fatalf("failed GetFilter.")
 	}
 
@@ -69,7 +69,7 @@ func TestWhisperBasic(t *testing.T) {
 	if len(mail) != 0 {
 		t.Fatalf("failed w.Envelopes().")
 	}
-	m := w.Messages(0)
+	m := w.Messages("non-existent")
 	if len(m) != 0 {
 		t.Fatalf("failed w.Messages.")
 	}
@@ -110,7 +110,7 @@ func TestWhisperBasic(t *testing.T) {
 }
 
 func TestWhisperIdentityManagement(t *testing.T) {
-	w := NewWhisper(nil)
+	w := New()
 	id1 := w.NewIdentity()
 	id2 := w.NewIdentity()
 	pub1 := common.ToHex(crypto.FromECDSAPub(&id1.PublicKey))
@@ -186,7 +186,7 @@ func TestWhisperSymKeyManagement(t *testing.T) {
 	InitSingleTest()
 
 	var k1, k2 []byte
-	w := NewWhisper(nil)
+	w := New()
 	id1 := string("arbitrary-string-1")
 	id2 := string("arbitrary-string-2")
 
@@ -304,7 +304,7 @@ func TestWhisperSymKeyManagement(t *testing.T) {
 func TestExpiry(t *testing.T) {
 	InitSingleTest()
 
-	w := NewWhisper(nil)
+	w := New()
 	w.test = true
 	w.Start(nil)
 	defer w.Stop()

@@ -19,6 +19,7 @@ package les
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -30,8 +31,7 @@ import (
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/les/flowcontrol"
 	"github.com/ubiq/go-ubiq/light"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/p2p"
 	"github.com/ubiq/go-ubiq/rlp"
 	"github.com/ubiq/go-ubiq/trie"
@@ -292,7 +292,7 @@ func (pm *ProtocolManager) blockLoop() {
 						lastHead = header
 						lastBroadcastTd = td
 
-						glog.V(logger.Debug).Infoln("===> ", number, hash, td, reorg)
+						log.Debug(fmt.Sprint("===> ", number, hash, td, reorg))
 
 						announce := announceData{Hash: hash, Number: number, Td: td, ReorgDepth: reorg}
 						for _, p := range peers {
@@ -396,7 +396,7 @@ func makeCht(db ethdb.Database) bool {
 	} else {
 		lastChtNum++
 
-		glog.V(logger.Detail).Infof("cht: %d %064x", lastChtNum, root)
+		log.Trace(fmt.Sprintf("cht: %d %064x", lastChtNum, root))
 
 		storeChtRoot(db, lastChtNum, root)
 		var data [8]byte

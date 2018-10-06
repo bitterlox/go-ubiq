@@ -25,37 +25,36 @@ import (
 	"github.com/ubiq/go-ubiq/cmd/utils"
 	"github.com/ubiq/go-ubiq/console"
 	"github.com/ubiq/go-ubiq/crypto"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"gopkg.in/urfave/cli.v1"
 )
 
 var (
-	walletCommand = cli.Command{
-		Name:      "wallet",
-		Usage:     "Manage Ethereum presale wallets",
-		ArgsUsage: "",
-		Category:  "ACCOUNT COMMANDS",
-		Description: `
-    gubiq wallet import /path/to/my/presale.wallet
+	/*walletCommand = cli.Command{
+			Name:      "wallet",
+			Usage:     "Manage Ethereum presale wallets",
+			ArgsUsage: "",
+			Category:  "ACCOUNT COMMANDS",
+			Description: `
+	    gubiq wallet import /path/to/my/presale.wallet
 
-will prompt for your password and imports your ether presale account.
-It can be used non-interactively with the --password option taking a
-passwordfile as argument containing the wallet password in plaintext.
+	will prompt for your password and imports your ether presale account.
+	It can be used non-interactively with the --password option taking a
+	passwordfile as argument containing the wallet password in plaintext.
 
-`,
-		Subcommands: []cli.Command{
-			{
-				Action:    importWallet,
-				Name:      "import",
-				Usage:     "Import Ethereum presale wallet",
-				ArgsUsage: "<keyFile>",
-				Description: `
-TODO: Please write this
-`,
+	`,
+			Subcommands: []cli.Command{
+				{
+					Action:    importWallet,
+					Name:      "import",
+					Usage:     "Import Ethereum presale wallet",
+					ArgsUsage: "<keyFile>",
+					Description: `
+	TODO: Please write this
+	`,
+				},
 			},
-		},
-	}
+		}*/
 	accountCommand = cli.Command{
 		Action:    accountList,
 		Name:      "account",
@@ -203,11 +202,11 @@ func unlockAccount(ctx *cli.Context, ks *keystore.KeyStore, address string, i in
 		password := getPassPhrase(prompt, false, i, passwords)
 		err = ks.Unlock(account, password)
 		if err == nil {
-			glog.V(logger.Info).Infof("Unlocked account %x", account.Address)
+			log.Info("Unlocked account", "address", account.Address.Hex())
 			return account, password
 		}
 		if err, ok := err.(*keystore.AmbiguousAddrError); ok {
-			glog.V(logger.Info).Infof("Unlocked account %x", account.Address)
+			log.Info("Unlocked account", "address", account.Address.Hex())
 			return ambiguousAddrRecovery(ks, err, password), password
 		}
 		if err != keystore.ErrDecrypt {
@@ -217,6 +216,7 @@ func unlockAccount(ctx *cli.Context, ks *keystore.KeyStore, address string, i in
 	}
 	// All trials expended to unlock account, bail out
 	utils.Fatalf("Failed to unlock account %s (%v)", address, err)
+
 	return accounts.Account{}, ""
 }
 

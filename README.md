@@ -11,7 +11,7 @@ Binary archives are published at [releases](https://github.com/ubiq/go-ubiq/rele
 
 ## Building the source
 
-For prerequisites and detailed build instructions please read the [Ethereum's Installation Instructions](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum) on their wiki. 
+For prerequisites and detailed build instructions please read the [Ethereum's Installation Instructions](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum) on their wiki.
 
 *Note*: Keep in mind that Ubiq aims to be 100% compatible with Ethereum, so mostly all the documentation you can find on Ethereum wiki, will apply for sure to Ubiq.
 
@@ -39,7 +39,7 @@ The go-ubiq project comes with several wrappers/executables found in the `cmd` d
 
 ## Running gubiq
 
-Going through all the possible command line flags is out of scope here (please consult 
+Going through all the possible command line flags is out of scope here (please consult
 [Ethereum CLI Wiki page](https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options)), but we've
 enumerated a few common parameter combos to get you up to speed quickly on how you can run your
 own Gubiq instance.

@@ -35,8 +35,7 @@ import (
 	"github.com/ubiq/go-ubiq/crypto"
 	"github.com/ubiq/go-ubiq/ethclient"
 	"github.com/ubiq/go-ubiq/internal/debug"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/p2p"
 	"github.com/ubiq/go-ubiq/p2p/discover"
@@ -272,7 +271,7 @@ func bzzd(ctx *cli.Context) error {
 		signal.Notify(sigc, syscall.SIGTERM)
 		defer signal.Stop(sigc)
 		<-sigc
-		glog.V(logger.Info).Infoln("Got sigterm, shutting down...")
+		log.Info("Got sigterm, shutting swarm down...")
 		stack.Stop()
 	}()
 	networkId := ctx.GlobalUint64(SwarmNetworkIdFlag.Name)
@@ -337,7 +336,7 @@ func getAccount(ctx *cli.Context, stack *node.Node) *ecdsa.PrivateKey {
 	}
 	// Try to load the arg as a hex key file.
 	if key, err := crypto.LoadECDSA(keyid); err == nil {
-		glog.V(logger.Info).Infof("swarm account key loaded: %#x", crypto.PubkeyToAddress(key.PublicKey))
+		log.Info("Swarm account key loaded", "address", crypto.PubkeyToAddress(key.PublicKey))
 		return key
 	}
 	// Otherwise try getting it from the keystore.
@@ -394,7 +393,7 @@ func injectBootnodes(srv *p2p.Server, nodes []string) {
 	for _, url := range nodes {
 		n, err := discover.ParseNode(url)
 		if err != nil {
-			glog.Errorf("invalid bootnode %q", err)
+			log.Error("Invalid swarm bootnode", "err", err)
 			continue
 		}
 		srv.AddPeer(n)

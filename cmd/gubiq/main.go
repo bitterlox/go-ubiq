@@ -29,13 +29,13 @@ import (
 	"github.com/ubiq/go-ubiq/accounts/keystore"
 	"github.com/ubiq/go-ubiq/cmd/utils"
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/common/hexutil"
 	"github.com/ubiq/go-ubiq/console"
 	"github.com/ubiq/go-ubiq/contracts/release"
 	"github.com/ubiq/go-ubiq/eth"
 	"github.com/ubiq/go-ubiq/ethclient"
 	"github.com/ubiq/go-ubiq/internal/debug"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/metrics"
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/params"
@@ -60,7 +60,7 @@ func init() {
 	// Initialize the CLI app and start Gubiq
 	app.Action = gubiq
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2016 The go-ubiq Authors"
+	app.Copyright = "Copyright 2013-2018 The go-ubiq Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
@@ -72,7 +72,7 @@ func init() {
 		monitorCommand,
 		// See accountcmd.go:
 		accountCommand,
-		walletCommand,
+		// walletCommand,
 		// See consolecmd.go:
 		consoleCommand,
 		attachCommand,
@@ -80,6 +80,7 @@ func init() {
 		// See misccmd.go:
 		makedagCommand,
 		versionCommand,
+		bugCommand,
 		licenseCommand,
 	}
 
@@ -195,11 +196,10 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	}{uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch), clientIdentifier, runtime.Version(), runtime.GOOS}
 	extra, err := rlp.EncodeToBytes(clientInfo)
 	if err != nil {
-		glog.V(logger.Warn).Infoln("error setting canonical miner information:", err)
+		log.Warn("Failed to set canonical miner information", "err", err)
 	}
-	if uint64(len(extra)) > params.MaximumExtraDataSize.Uint64() {
-		glog.V(logger.Warn).Infoln("error setting canonical miner information: extra exceeds", params.MaximumExtraDataSize)
-		glog.V(logger.Debug).Infof("extra: %x\n", extra)
+	if uint64(len(extra)) > params.MaximumExtraDataSize {
+		log.Warn("Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
 		extra = nil
 	}
 	stack := utils.MakeNode(ctx, clientIdentifier, gitCommit)
@@ -264,7 +264,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		// Open and self derive any wallets already attached
 		for _, wallet := range stack.AccountManager().Wallets() {
 			if err := wallet.Open(""); err != nil {
-				glog.V(logger.Warn).Infof("Failed to open wallet %s: %v", wallet.URL(), err)
+				log.Warn("Failed to open wallet", "url", wallet.URL(), "err", err)
 			} else {
 				wallet.SelfDerive(accounts.DefaultBaseDerivationPath, stateReader)
 			}
@@ -273,13 +273,13 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		for event := range events {
 			if event.Arrive {
 				if err := event.Wallet.Open(""); err != nil {
-					glog.V(logger.Info).Infof("New wallet appeared: %s, failed to open: %s", event.Wallet.URL(), err)
+					log.Warn("New wallet appeared, failed to open", "url", event.Wallet.URL(), "err", err)
 				} else {
-					glog.V(logger.Info).Infof("New wallet appeared: %s, %s", event.Wallet.URL(), event.Wallet.Status())
+					log.Info("New wallet appeared", "url", event.Wallet.URL(), "status", event.Wallet.Status())
 					event.Wallet.SelfDerive(accounts.DefaultBaseDerivationPath, stateReader)
 				}
 			} else {
-				glog.V(logger.Info).Infof("Old wallet dropped:  %s", event.Wallet.URL())
+				log.Info("Old wallet dropped", "url", event.Wallet.URL())
 				event.Wallet.Close()
 			}
 		}
@@ -288,7 +288,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) {
 		var ethereum *eth.Ethereum
 		if err := stack.Service(&ethereum); err != nil {
-			utils.Fatalf("ubiq service not running: %v", err)
+			utils.Fatalf("Ubiq service not running: %v", err)
 		}
 		if err := ethereum.StartMining(ctx.GlobalInt(utils.MinerThreadsFlag.Name)); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)

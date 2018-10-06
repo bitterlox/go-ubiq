@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/common/math"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/crypto"
 	"github.com/ubiq/go-ubiq/crypto/sha3"
@@ -53,11 +54,11 @@ func (d *diffTest) UnmarshalJSON(b []byte) (err error) {
 		return err
 	}
 
-	d.ParentTimestamp = common.String2Big(ext.ParentTimestamp).Uint64()
-	d.ParentDifficulty = common.String2Big(ext.ParentDifficulty)
-	d.CurrentTimestamp = common.String2Big(ext.CurrentTimestamp).Uint64()
-	d.CurrentBlocknumber = common.String2Big(ext.CurrentBlocknumber)
-	d.CurrentDifficulty = common.String2Big(ext.CurrentDifficulty)
+	d.ParentTimestamp = math.MustParseUint64(ext.ParentTimestamp)
+	d.ParentDifficulty = math.MustParseBig256(ext.ParentDifficulty)
+	d.CurrentTimestamp = math.MustParseUint64(ext.CurrentTimestamp)
+	d.CurrentBlocknumber = math.MustParseBig256(ext.CurrentBlocknumber)
+	d.CurrentDifficulty = math.MustParseBig256(ext.CurrentDifficulty)
 
 	return nil
 }

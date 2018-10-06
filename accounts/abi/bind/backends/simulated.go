@@ -26,6 +26,7 @@ import (
 	"github.com/ubiq/go-ubiq"
 	"github.com/ubiq/go-ubiq/accounts/abi/bind"
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/common/math"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
@@ -237,7 +238,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call ethereum.CallM
 	if call.GasPrice == nil {
 		call.GasPrice = big.NewInt(1)
 	}
-	if call.Gas == nil || call.Gas.BitLen() == 0 {
+	if call.Gas == nil || call.Gas.Sign() == 0 {
 		call.Gas = big.NewInt(50000000)
 	}
 	if call.Value == nil {
@@ -245,7 +246,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call ethereum.CallM
 	}
 	// Set infinite balance to the fake caller account.
 	from := statedb.GetOrNewStateObject(call.From)
-	from.SetBalance(common.MaxBig)
+	from.SetBalance(math.MaxBig256)
 	// Execute the call.
 	msg := callmsg{call}
 
@@ -253,7 +254,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call ethereum.CallM
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(evmContext, statedb, chainConfig, vm.Config{})
-	gaspool := new(core.GasPool).AddGas(common.MaxBig)
+	gaspool := new(core.GasPool).AddGas(math.MaxBig256)
 	ret, gasUsed, _, err := core.NewStateTransition(vmenv, msg, gaspool).TransitionDb()
 	return ret, gasUsed, err
 }

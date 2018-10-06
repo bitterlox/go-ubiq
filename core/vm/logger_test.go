@@ -46,17 +46,13 @@ type dummyStateDB struct {
 	ref *dummyContractRef
 }
 
-func (d dummyStateDB) GetAccount(common.Address) Account {
-	return d.ref
-}
-
 func TestStoreCapture(t *testing.T) {
 	var (
 		env      = NewEVM(Context{}, nil, params.TestChainConfig, Config{EnableJit: false, ForceJit: false})
 		logger   = NewStructLogger(nil)
 		mem      = NewMemory()
 		stack    = newstack()
-		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), new(big.Int))
+		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
 	)
 	stack.push(big.NewInt(1))
 	stack.push(big.NewInt(0))
@@ -78,7 +74,7 @@ func TestStorageCapture(t *testing.T) {
 	t.Skip("implementing this function is difficult. it requires all sort of interfaces to be implemented which isn't trivial. The value (the actual test) isn't worth it")
 	var (
 		ref      = &dummyContractRef{}
-		contract = NewContract(ref, ref, new(big.Int), new(big.Int))
+		contract = NewContract(ref, ref, new(big.Int), 0)
 		env      = NewEVM(Context{}, dummyStateDB{ref: ref}, params.TestChainConfig, Config{EnableJit: false, ForceJit: false})
 		logger   = NewStructLogger(nil)
 		mem      = NewMemory()

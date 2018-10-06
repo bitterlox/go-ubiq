@@ -38,8 +38,6 @@ import (
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/core/vm"
 	"github.com/ubiq/go-ubiq/internal/ethapi"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
 	"github.com/ubiq/go-ubiq/miner"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/rlp"
@@ -104,17 +102,17 @@ func (s *PublicMinerAPI) SubmitWork(nonce types.BlockNonce, solution, digest com
 // result[0], 32 bytes hex encoded current block header pow-hash
 // result[1], 32 bytes hex encoded seed hash used for DAG
 // result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
-func (s *PublicMinerAPI) GetWork() (work [3]string, err error) {
+func (s *PublicMinerAPI) GetWork() ([3]string, error) {
 	if !s.e.IsMining() {
 		if err := s.e.StartMining(0); err != nil {
-			return work, err
+			return [3]string{}, err
 		}
 	}
-	if work, err = s.agent.GetWork(); err == nil {
-		return
+	work, err := s.agent.GetWork()
+	if err != nil {
+		return work, fmt.Errorf("mining not ready: %v", err)
 	}
-	glog.V(logger.Debug).Infof("%v", err)
-	return work, fmt.Errorf("mining not ready")
+	return work, nil
 }
 
 // SubmitHashrate can be used for remote miners to submit their hash rate. This enables the node to report the combined
@@ -565,4 +563,10 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, txHash common.
 func (api *PrivateDebugAPI) Preimage(ctx context.Context, hash common.Hash) (hexutil.Bytes, error) {
 	db := core.PreimageTable(api.eth.ChainDb())
 	return db.Get(hash.Bytes())
+}
+
+// GetBadBLocks returns a list of the last 'bad blocks' that the client has seen on the network
+// and returns them as a JSON list of block-hashes
+func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]core.BadBlockArgs, error) {
+	return api.eth.BlockChain().BadBlocks()
 }

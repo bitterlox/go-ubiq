@@ -47,22 +47,38 @@ func StringToHash(s string) Hash { return BytesToHash([]byte(s)) }
 func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
 func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }
 
-// Don't use the default 'String' method in case we want to overwrite
-
 // Get the string representation of the underlying hash
 func (h Hash) Str() string   { return string(h[:]) }
 func (h Hash) Bytes() []byte { return h[:] }
-func (h Hash) Big() *big.Int { return Bytes2Big(h[:]) }
+func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
 func (h Hash) Hex() string   { return hexutil.Encode(h[:]) }
 
-// UnmarshalJSON parses a hash in its hex from to a hash.
-func (h *Hash) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalJSON("Hash", input, h[:])
+// TerminalString implements log.TerminalStringer, formatting a string for console
+// output during logging.
+func (h Hash) TerminalString() string {
+	return fmt.Sprintf("%x…%x", h[:3], h[29:])
 }
 
-// Serialize given hash to JSON
-func (h Hash) MarshalJSON() ([]byte, error) {
-	return hexutil.Bytes(h[:]).MarshalJSON()
+// String implements the stringer interface and is used also by the logger when
+// doing full logging into a file.
+func (h Hash) String() string {
+	return h.Hex()
+}
+
+// Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
+// without going through the stringer interface used for logging.
+func (h Hash) Format(s fmt.State, c rune) {
+	fmt.Fprintf(s, "%"+string(c), h[:])
+}
+
+// UnmarshalText parses a hash in hex syntax.
+func (h *Hash) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("Hash", input, h[:])
+}
+
+// MarshalText returns the hex representation of h.
+func (h Hash) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(h[:]).MarshalText()
 }
 
 // Sets the hash to the value of b. If b is larger than len(h) it will panic
@@ -122,9 +138,20 @@ func IsHexAddress(s string) bool {
 // Get the string representation of the underlying address
 func (a Address) Str() string   { return string(a[:]) }
 func (a Address) Bytes() []byte { return a[:] }
-func (a Address) Big() *big.Int { return Bytes2Big(a[:]) }
+func (a Address) Big() *big.Int { return new(big.Int).SetBytes(a[:]) }
 func (a Address) Hash() Hash    { return BytesToHash(a[:]) }
 func (a Address) Hex() string   { return hexutil.Encode(a[:]) }
+
+// String implements the stringer interface and is used also by the logger.
+func (a Address) String() string {
+	return a.Hex()
+}
+
+// Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
+// without going through the stringer interface used for logging.
+func (a Address) Format(s fmt.State, c rune) {
+	fmt.Fprintf(s, "%"+string(c), a[:])
+}
 
 // Sets the address to the value of b. If b is larger than len(a) it will panic
 func (a *Address) SetBytes(b []byte) {
@@ -144,14 +171,14 @@ func (a *Address) Set(other Address) {
 	}
 }
 
-// Serialize given address to JSON
-func (a Address) MarshalJSON() ([]byte, error) {
-	return hexutil.Bytes(a[:]).MarshalJSON()
+// MarshalText returns the hex representation of a.
+func (a Address) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(a[:]).MarshalText()
 }
 
-// Parse address from raw json data
-func (a *Address) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalJSON("Address", input, a[:])
+// UnmarshalText parses a hash in hex syntax.
+func (a *Address) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("Address", input, a[:])
 }
 
 // PP Pretty Prints a byte slice in the following format:

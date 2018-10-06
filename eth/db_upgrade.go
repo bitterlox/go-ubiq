@@ -25,8 +25,7 @@ import (
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/ethdb"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/rlp"
 )
 
@@ -47,7 +46,7 @@ func upgradeDeduplicateData(db ethdb.Database) func() error {
 		return nil
 	}
 	// Start the deduplication upgrade on a new goroutine
-	glog.V(logger.Info).Infof("Upgrading database to use lookup entries")
+	log.Info("Upgrading database to use lookup entries")
 	stop := make(chan chan error)
 
 	go func() {
@@ -105,7 +104,7 @@ func upgradeDeduplicateData(db ethdb.Database) func() error {
 				it = db.(*ethdb.LDBDatabase).NewIterator()
 				it.Seek(key)
 
-				glog.V(logger.Info).Infof("Deduplicating database entries. deduped: %d", converted)
+				log.Info("Deduplicating database entries", converted)
 			}
 			// Check for termination, or continue after a bit of a timeout
 			select {
@@ -117,10 +116,10 @@ func upgradeDeduplicateData(db ethdb.Database) func() error {
 		}
 		// Upgrade finished, mark a such and terminate
 		if failed == nil {
-			glog.V(logger.Info).Infof("Database deduplication successful. deduped: %d", converted)
+			log.Info("Database deduplication successful", converted)
 			db.Put(deduplicateData, []byte{42})
 		} else {
-			glog.V(logger.Error).Infof("Database deduplication failed. deduped: %d", converted, "err", failed)
+			log.Error("Database deduplication failed.", converted, "err", failed)
 		}
 		it.Release()
 		it = nil
@@ -167,7 +166,7 @@ func addMipmapBloomBins(db ethdb.Database) (err error) {
 	}
 
 	tstart := time.Now()
-	glog.V(logger.Info).Infoln("upgrading db log bloom bins")
+	log.Warn("Upgrading db log bloom bins")
 	for i := uint64(0); i <= latestBlock.NumberU64(); i++ {
 		hash := core.GetCanonicalHash(db, i)
 		if (hash == common.Hash{}) {
@@ -175,6 +174,6 @@ func addMipmapBloomBins(db ethdb.Database) (err error) {
 		}
 		core.WriteMipmapBloom(db, i, core.GetBlockReceipts(db, hash, i))
 	}
-	glog.V(logger.Info).Infoln("upgrade completed in", time.Since(tstart))
+	log.Info("Bloom-bin upgrade completed", "elapsed", common.PrettyDuration(time.Since(tstart)))
 	return nil
 }

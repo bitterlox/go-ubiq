@@ -23,8 +23,7 @@ import (
 	"runtime"
 	"sync/atomic"
 
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -149,7 +148,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			glog.Errorln(string(buf))
+			log.Error(fmt.Sprint(string(buf)))
 		}
 
 		s.codecsMu.Lock()
@@ -180,7 +179,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 	for atomic.LoadInt32(&s.run) == 1 {
 		reqs, batch, err := s.readRequest(codec)
 		if err != nil {
-			glog.V(logger.Debug).Infof("read error %v\n", err)
+			log.Debug(fmt.Sprintf("read error %v\n", err))
 			codec.Write(codec.CreateErrorResponse(nil, err))
 			return nil
 		}
@@ -236,7 +235,7 @@ func (s *Server) ServeSingleRequest(codec ServerCodec, options CodecOption) {
 // close all codecs which will cancel pending requests/subscriptions.
 func (s *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&s.run, 1, 0) {
-		glog.V(logger.Debug).Infoln("RPC Server shutdown initiatied")
+		log.Debug(fmt.Sprint("RPC Server shutdown initiatied"))
 		s.codecsMu.Lock()
 		defer s.codecsMu.Unlock()
 		s.codecs.Each(func(c interface{}) bool {
@@ -341,7 +340,7 @@ func (s *Server) exec(ctx context.Context, codec ServerCodec, req *serverRequest
 	}
 
 	if err := codec.Write(response); err != nil {
-		glog.V(logger.Error).Infof("%v\n", err)
+		log.Error(fmt.Sprintf("%v\n", err))
 		codec.Close()
 	}
 
@@ -368,7 +367,7 @@ func (s *Server) execBatch(ctx context.Context, codec ServerCodec, requests []*s
 	}
 
 	if err := codec.Write(responses); err != nil {
-		glog.V(logger.Error).Infof("%v\n", err)
+		log.Error(fmt.Sprintf("%v\n", err))
 		codec.Close()
 	}
 

@@ -27,8 +27,7 @@ import (
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
-	"github.com/ubiq/go-ubiq/logger"
-	"github.com/ubiq/go-ubiq/logger/glog"
+	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/rlp"
 )
@@ -308,7 +307,7 @@ func (pool *TxPool) setNewHead(head *types.Header) {
 func (pool *TxPool) Stop() {
 	close(pool.quit)
 	pool.events.Unsubscribe()
-	glog.V(logger.Info).Infoln("Transaction pool stopped")
+	log.Info(fmt.Sprint("Transaction pool stopped"))
 }
 
 // Stats returns the number of currently pending (locally created) transactions
@@ -353,7 +352,7 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 	// Transactions can't be negative. This may never happen
 	// using RLP decoded transactions but may occur if you create
 	// a transaction using the RPC for example.
-	if tx.Value().Cmp(common.Big0) < 0 {
+	if tx.Value().Sign() < 0 {
 		return core.ErrNegativeValue
 	}
 
@@ -404,7 +403,7 @@ func (self *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 		go self.eventMux.Post(core.TxPreEvent{Tx: tx})
 	}
 
-	if glog.V(logger.Debug) {
+	log.Debug("", "msg", log.Lazy{Fn: func() string {
 		var toname string
 		if to := tx.To(); to != nil {
 			toname = common.Bytes2Hex(to[:4])
@@ -415,8 +414,8 @@ func (self *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 		// verified in ValidateTransaction.
 		f, _ := types.Sender(self.signer, tx)
 		from := common.Bytes2Hex(f[:4])
-		glog.Infof("(t) %x => %s (%v) %x\n", from, toname, tx.Value, hash)
-	}
+		return fmt.Sprintf("(t) %x => %s (%v) %x\n", from, toname, tx.Value(), hash)
+	}})
 
 	return nil
 }
@@ -451,11 +450,11 @@ func (self *TxPool) AddBatch(ctx context.Context, txs []*types.Transaction) {
 
 	for _, tx := range txs {
 		if err := self.add(ctx, tx); err != nil {
-			glog.V(logger.Debug).Infoln("tx error:", err)
+			log.Debug(fmt.Sprint("tx error:", err))
 		} else {
 			sendTx = append(sendTx, tx)
 			h := tx.Hash()
-			glog.V(logger.Debug).Infof("tx %x\n", h[:4])
+			log.Debug(fmt.Sprintf("tx %x\n", h[:4]))
 		}
 	}
 
