@@ -18,12 +18,10 @@ package light
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/crypto"
-	"github.com/ubiq/go-ubiq/log"
 )
 
 // LightState is a memory representation of a state.
@@ -239,10 +237,6 @@ func (self *LightState) GetOrNewStateObject(ctx context.Context, addr common.Add
 
 // newStateObject creates a state object whether it exists in the state or not
 func (self *LightState) newStateObject(addr common.Address) *StateObject {
-	log.Debug("", "msg", log.Lazy{Fn: func() string {
-		return fmt.Sprintf("(+) %x\n", addr)
-	}})
-
 	stateObject := NewStateObject(addr, self.odr)
 	self.stateObjects[addr.Str()] = stateObject
 

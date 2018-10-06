@@ -1039,12 +1039,10 @@ func (self *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		case SplitStatTy:
 			events = append(events, ChainSplitEvent{block, logs})
 		}
-
 		stats.processed++
 		stats.usedGas += usedGas.Uint64()
 		stats.report(chain, i)
 	}
-
 	go self.postChainEvents(events, coalescedLogs)
 
 	return 0, nil
@@ -1168,13 +1166,16 @@ func (self *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		}
 	}
 	// Ensure the user sees large reorgs
-	logFn := log.Debug
-	if len(oldChain) > 63 {
-		logFn = log.Warn
+	if len(oldChain) > 0 && len(newChain) > 0 {
+		logFn := log.Debug
+		if len(oldChain) > 63 {
+			logFn = log.Warn
+		}
+		logFn("Chain split detected", "number", commonBlock.Number(), "hash", commonBlock.Hash(),
+			"drop", len(oldChain), "dropfrom", oldChain[0].Hash(), "add", len(newChain), "addfrom", newChain[0].Hash())
+	} else {
+		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}
-	logFn("Chain split detected", "number", commonBlock.Number(), "hash", commonBlock.Hash(),
-		"drop", len(oldChain), "dropfrom", oldChain[0].Hash(), "add", len(newChain), "addfrom", newChain[0].Hash())
-
 	var addedTxs types.Transactions
 	// insert blocks. Order does not matter. Last block will be written in ImportChain itself which creates the new head properly
 	for _, block := range newChain {

@@ -24,7 +24,6 @@ import (
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/crypto"
-	"github.com/ubiq/go-ubiq/log"
 	"github.com/ubiq/go-ubiq/rlp"
 )
 
@@ -107,10 +106,6 @@ func NewStateObject(address common.Address, odr OdrBackend) *StateObject {
 func (self *StateObject) MarkForDeletion() {
 	self.remove = true
 	self.dirty = true
-
-	log.Debug("", "msg", log.Lazy{Fn: func() string {
-		return fmt.Sprintf("%x: #%d %v X\n", self.Address(), self.nonce, self.balance)
-	}})
 }
 
 // getAddr gets the storage value at the given address from the trie
@@ -156,19 +151,11 @@ func (self *StateObject) SetState(k, value common.Hash) {
 // AddBalance adds the given amount to the account balance
 func (c *StateObject) AddBalance(amount *big.Int) {
 	c.SetBalance(new(big.Int).Add(c.balance, amount))
-
-	log.Debug("", "msg", log.Lazy{Fn: func() string {
-		return fmt.Sprintf("%x: #%d %v (+ %v)\n", c.Address(), c.nonce, c.balance, amount)
-	}})
 }
 
 // SubBalance subtracts the given amount from the account balance
 func (c *StateObject) SubBalance(amount *big.Int) {
 	c.SetBalance(new(big.Int).Sub(c.balance, amount))
-
-	log.Debug("", "msg", log.Lazy{Fn: func() string {
-		return fmt.Sprintf("%x: #%d %v (- %v)\n", c.Address(), c.nonce, c.balance, amount)
-	}})
 }
 
 // SetBalance sets the account balance to the given amount
