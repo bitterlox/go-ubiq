@@ -24,7 +24,7 @@ Usage: go run ci.go <command> <command flags/arguments>
 Available commands are:
 
    install    [ -arch architecture ] [ packages... ]                                           -- builds packages and executables
-   test       [ -coverage ] [ -vet ] [ -misspell ] [ packages... ]                             -- runs the tests
+   test       [ -coverage ] [ -misspell ] [ packages... ]                                      -- runs the tests
    archive    [ -arch architecture ] [ -type zip|tar ] [ -signer key-envvar ] [ -upload dest ] -- archives build artefacts
    importkeys                                                                                  -- imports signing keys from env
    debsrc     [ -signer key-id ] [ -upload dest ]                                              -- creates a debian source package
@@ -84,6 +84,10 @@ var (
 			Description: "Ubiq CLI client.",
 		},
 		{
+			Name:        "bootnode",
+			Description: "Ubiq bootnode.",
+		},
+		{
 			Name:        "rlpdump",
 			Description: "Developer utility tool that prints RLP structures.",
 		},
@@ -93,7 +97,7 @@ var (
 		},
 		{
 			Name:        "swarm",
-			Description: "Ethereum Swarm daemon and tools",
+			Description: "Ubiq Swarm daemon and tools",
 		},
 		{
 			Name:        "abigen",
@@ -175,6 +179,8 @@ func doInstall(cmdline []string) {
 	if flag.NArg() > 0 {
 		packages = flag.Args()
 	}
+	packages = build.ExpandPackagesNoVendor(packages)
+
 	if *arch == "" || *arch == runtime.GOARCH {
 		goinstall := goTool("install", buildFlags(env)...)
 		goinstall.Args = append(goinstall.Args, "-v")
@@ -217,13 +223,16 @@ func doInstall(cmdline []string) {
 }
 
 func buildFlags(env build.Environment) (flags []string) {
-	if os.Getenv("GO_OPENCL") != "" {
-		flags = append(flags, "-tags", "opencl")
+	var ld []string
+	if env.Commit != "" {
+		ld = append(ld, "-X", "main.gitCommit="+env.Commit)
+	}
+	if runtime.GOOS == "darwin" {
+		ld = append(ld, "-s")
 	}
 
-	// Set gitCommit constant via link-time assignment.
-	if env.Commit != "" {
-		flags = append(flags, "-ldflags", "-X main.gitCommit="+env.Commit)
+	if len(ld) > 0 {
+		flags = append(flags, "-ldflags", strings.Join(ld, " "))
 	}
 	return flags
 }
@@ -269,38 +278,25 @@ func goToolArch(arch string, subcmd string, args ...string) *exec.Cmd {
 
 func doTest(cmdline []string) {
 	var (
-		vet      = flag.Bool("vet", false, "Whether to run go vet")
 		misspell = flag.Bool("misspell", false, "Whether to run the spell checker")
 		coverage = flag.Bool("coverage", false, "Whether to record code coverage")
 	)
 	flag.CommandLine.Parse(cmdline)
+	env := build.Env()
 
 	packages := []string{"./..."}
 	if len(flag.CommandLine.Args()) > 0 {
 		packages = flag.CommandLine.Args()
 	}
-	if len(packages) == 1 && packages[0] == "./..." {
-		// Resolve ./... manually since go vet will fail on vendored stuff
-		out, err := goTool("list", "./...").CombinedOutput()
-		if err != nil {
-			log.Fatalf("package listing failed: %v\n%s", err, string(out))
-		}
-		packages = []string{}
-		for _, line := range strings.Split(string(out), "\n") {
-			if !strings.Contains(line, "vendor") {
-				packages = append(packages, strings.TrimSpace(line))
-			}
-		}
-	}
+	packages = build.ExpandPackagesNoVendor(packages)
+
 	// Run analysis tools before the tests.
-	if *vet {
-		build.MustRun(goTool("vet", packages...))
-	}
+	build.MustRun(goTool("vet", packages...))
 	if *misspell {
 		spellcheck(packages)
 	}
 	// Run the actual tests.
-	gotest := goTool("test")
+	gotest := goTool("test", buildFlags(env)...)
 	// Test a single package at a time. CI builders are slow
 	// and some tests run into timeouts under load.
 	gotest.Args = append(gotest.Args, "-p", "1")

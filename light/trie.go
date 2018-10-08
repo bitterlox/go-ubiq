@@ -18,6 +18,7 @@ package light
 
 import (
 	"context"
+
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/trie"
 )

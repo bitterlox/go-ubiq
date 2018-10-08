@@ -42,6 +42,7 @@ var TestnetChainConfig = &ChainConfig{
 // anyone adding flags to the config to also have to set these
 // fields.
 var AllProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0)}
+var TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0)}
 
 // ChainConfig is the core config which determines the blockchain settings.
 //
@@ -54,7 +55,7 @@ type ChainConfig struct {
 	EIP155Block *big.Int `json:"eip155Block"` // EIP155 HF block
 }
 
-// String implements the Stringer interface.
+// String implements the fmt.Stringer interface.
 func (c *ChainConfig) String() string {
 	return fmt.Sprintf("{ChainID: %v EIP155: %v}",
 		c.ChainId,
@@ -62,10 +63,9 @@ func (c *ChainConfig) String() string {
 	)
 }
 
-var (
-	TestChainConfig = &ChainConfig{big.NewInt(1), new(big.Int)}
-	TestRules       = TestChainConfig.Rules(new(big.Int))
-)
+func (c *ChainConfig) IsEIP155(num *big.Int) bool {
+	return isForked(c.EIP155Block, num)
+}
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
@@ -74,24 +74,82 @@ func (c *ChainConfig) GasTable(num *big.Int) GasTable {
 	return GasTableEIP158
 }
 
-func (c *ChainConfig) IsEIP155(num *big.Int) bool {
-	if c.EIP155Block == nil || num == nil {
+// CheckCompatible checks whether scheduled fork transitions have been imported
+// with a mismatching chain configuration.
+func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *ConfigCompatError {
+	bhead := new(big.Int).SetUint64(height)
+
+	// Iterate checkCompatible to find the lowest conflict.
+	var lasterr *ConfigCompatError
+	for {
+		err := c.checkCompatible(newcfg, bhead)
+		if err == nil || (lasterr != nil && err.RewindTo == lasterr.RewindTo) {
+			break
+		}
+		lasterr = err
+		bhead.SetUint64(err.RewindTo)
+	}
+	return lasterr
+}
+
+func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
+	if isForkIncompatible(c.EIP155Block, newcfg.EIP155Block, head) {
+		return newCompatError("EIP155 fork block", c.EIP155Block, newcfg.EIP155Block)
+	}
+	return nil
+}
+
+// isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to
+// block s2 because head is already past the fork.
+func isForkIncompatible(s1, s2, head *big.Int) bool {
+	return (isForked(s1, head) || isForked(s2, head)) && !configNumEqual(s1, s2)
+}
+
+// isForked returns whether a fork scheduled at block s is active at the given head block.
+func isForked(s, head *big.Int) bool {
+	if s == nil || head == nil {
 		return false
 	}
-	return num.Cmp(c.EIP155Block) >= 0
-
+	return s.Cmp(head) <= 0
 }
 
-// Rules wraps ChainConfig and is merely syntatic sugar or can be used for functions
-// that do not have or require information about the block.
-//
-// Rules is a one time interface meaning that it shouldn't be used in between transition
-// phases.
-type Rules struct {
-	ChainId  *big.Int
-	IsEIP155 bool
+func configNumEqual(x, y *big.Int) bool {
+	if x == nil {
+		return y == nil
+	}
+	if y == nil {
+		return x == nil
+	}
+	return x.Cmp(y) == 0
 }
 
-func (c *ChainConfig) Rules(num *big.Int) Rules {
-	return Rules{ChainId: new(big.Int).Set(c.ChainId), IsEIP155: c.IsEIP155(num)}
+// ConfigCompatError is raised if the locally-stored blockchain is initialised with a
+// ChainConfig that would alter the past.
+type ConfigCompatError struct {
+	What string
+	// block numbers of the stored and new configurations
+	StoredConfig, NewConfig *big.Int
+	// the block number to which the local chain must be rewound to correct the error
+	RewindTo uint64
+}
+
+func newCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatError {
+	var rew *big.Int
+	switch {
+	case storedblock == nil:
+		rew = newblock
+	case newblock == nil || storedblock.Cmp(newblock) < 0:
+		rew = storedblock
+	default:
+		rew = newblock
+	}
+	err := &ConfigCompatError{what, storedblock, newblock, 0}
+	if rew != nil && rew.Sign() > 0 {
+		err.RewindTo = rew.Uint64() - 1
+	}
+	return err
+}
+
+func (err *ConfigCompatError) Error() string {
+	return fmt.Sprintf("mismatching %s in database (have %d, want %d, rewindto %d)", err.What, err.StoredConfig, err.NewConfig, err.RewindTo)
 }

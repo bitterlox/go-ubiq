@@ -162,8 +162,11 @@ func testOdr(t *testing.T, protocol int, expFail uint64, fn odrTestFn) {
 	lpm, ldb, odr := newTestProtocolManagerMust(t, true, 0, nil)
 	_, err1, lpeer, err2 := newTestPeerPair("peer", protocol, pm, lpm)
 	pool := &testServerPool{}
+	lpm.reqDist = newRequestDistributor(pool.getAllPeers, lpm.quitSync)
+	odr.reqDist = lpm.reqDist
 	pool.setPeer(lpeer)
 	odr.serverPool = pool
+	lpeer.hasBlock = func(common.Hash, uint64) bool { return true }
 	select {
 	case <-time.After(time.Millisecond * 100):
 	case err := <-err1:
@@ -181,6 +184,7 @@ func testOdr(t *testing.T, protocol int, expFail uint64, fn odrTestFn) {
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel()
 			b2 := fn(ctx, ldb, lpm.chainConfig, nil, lpm.blockchain.(*light.LightChain), bhash)
+
 			eq := bytes.Equal(b1, b2)
 			exp := i < expFail
 			if exp && !eq {

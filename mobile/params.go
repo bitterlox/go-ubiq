@@ -19,6 +19,8 @@
 package gubiq
 
 import (
+	"encoding/json"
+
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/p2p/discv5"
 	"github.com/ubiq/go-ubiq/params"
@@ -48,7 +50,11 @@ func TestnetChainConfig() *ChainConfig {
 
 // TestnetGenesis returns the JSON spec to use for the Ethereum test network.
 func TestnetGenesis() string {
-	return core.DefaultTestnetGenesisBlock()
+	enc, err := json.Marshal(core.DefaultTestnetGenesisBlock())
+	if err != nil {
+		panic(err)
+	}
+	return string(enc)
 }
 
 // ChainConfig is the core config which determines the blockchain settings.

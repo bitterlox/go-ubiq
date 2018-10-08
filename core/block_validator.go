@@ -341,7 +341,7 @@ func ValidateHeader(config *params.ChainConfig, pow pow.PoW, header *types.Heade
 
 	if checkPow {
 		// Verify the nonce of the header. Return an error if it's not valid
-		if !pow.Verify(types.NewBlockWithHeader(header)) {
+		if err := pow.Verify(types.NewBlockWithHeader(header)); err != nil {
 			return &BlockNonceErr{header.Number, header.Hash(), header.Nonce.Uint64()}
 		}
 	}
@@ -388,10 +388,11 @@ func ValidateHeaderHeaderChain(config *params.ChainConfig, pow pow.PoW, header *
 
 	if checkPow {
 		// Verify the nonce of the header. Return an error if it's not valid
-		if !pow.Verify(types.NewBlockWithHeader(header)) {
+		if err := pow.Verify(types.NewBlockWithHeader(header)); err != nil {
 			return &BlockNonceErr{header.Number, header.Hash(), header.Nonce.Uint64()}
 		}
 	}
+
 	return nil
 }
 

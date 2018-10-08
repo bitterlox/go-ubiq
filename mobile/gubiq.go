@@ -20,10 +20,12 @@
 package gubiq
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"path/filepath"
 
+	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/eth"
 	"github.com/ubiq/go-ubiq/ethclient"
 	"github.com/ubiq/go-ubiq/ethstats"
@@ -92,7 +94,19 @@ func NewNodeConfig() *NodeConfig {
 	return &config
 }
 
-// Node represents a Gubiq Ethereum node instance.
+// SetMainnet sets up the node for use on the Ethereum mainnet.
+func (cfg *NodeConfig) SetMainnet() {
+	cfg.EthereumGenesis = ""
+	cfg.EthereumChainConfig = MainnetChainConfig()
+}
+
+// SetTestnet sets up the node for use on the Ethereum testnet.
+func (cfg *NodeConfig) SetTestnet() {
+	cfg.EthereumGenesis = TestnetGenesis()
+	cfg.EthereumChainConfig = TestnetChainConfig()
+}
+
+// Node represents a Geth Ethereum node instance.
 type Node struct {
 	node *node.Node
 }
@@ -127,14 +141,34 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var genesis *core.Genesis
+	if config.EthereumGenesis != "" {
+		genesis = new(core.Genesis)
+		if err := json.Unmarshal([]byte(config.EthereumGenesis), genesis); err != nil {
+			return nil, fmt.Errorf("invalid EthereumGenesis: %v", err)
+		}
+	}
+	if config.EthereumChainConfig != nil {
+		if genesis == nil {
+			genesis = core.DefaultGenesisBlock()
+		}
+		genesis.Config = &params.ChainConfig{
+			ChainId:        big.NewInt(config.EthereumChainConfig.ChainID),
+			HomesteadBlock: big.NewInt(config.EthereumChainConfig.HomesteadBlock),
+			DAOForkBlock:   big.NewInt(config.EthereumChainConfig.DAOForkBlock),
+			DAOForkSupport: config.EthereumChainConfig.DAOForkSupport,
+			EIP150Block:    big.NewInt(config.EthereumChainConfig.EIP150Block),
+			EIP150Hash:     config.EthereumChainConfig.EIP150Hash.hash,
+			EIP155Block:    big.NewInt(config.EthereumChainConfig.EIP155Block),
+			EIP158Block:    big.NewInt(config.EthereumChainConfig.EIP158Block),
+		}
+	}
+
 	// Register the Ethereum protocol if requested
 	if config.EthereumEnabled {
 		ethConf := &eth.Config{
-			ChainConfig: &params.ChainConfig{
-				ChainId:     big.NewInt(config.EthereumChainConfig.ChainID),
-				EIP155Block: big.NewInt(config.EthereumChainConfig.EIP155Block),
-			},
-			Genesis:                 config.EthereumGenesis,
+			Genesis:                 genesis,
 			LightMode:               true,
 			DatabaseCache:           config.EthereumDatabaseCache,
 			NetworkId:               config.EthereumNetworkID,
@@ -145,6 +179,9 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 			GpobaseStepDown:         10,
 			GpobaseStepUp:           100,
 			GpobaseCorrectionFactor: 110,
+			EthashCacheDir:          "ethash",
+			EthashCachesInMem:       2,
+			EthashCachesOnDisk:      3,
 		}
 		if err := rawStack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			return les.New(ctx, ethConf)

@@ -119,43 +119,46 @@ func (r *ReleaseService) checker() {
 		case <-timer.C:
 			// Rechedule the timer before continuing
 			timer.Reset(releaseRecheckInterval)
-
-			// Retrieve the current version, and handle missing contracts gracefully
-			ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
-			opts := &bind.CallOpts{Context: ctx}
-			version, err := r.oracle.CurrentVersion(opts)
-			if err != nil {
-				if err == bind.ErrNoCode {
-					log.Debug("Release oracle not found", "contract", r.config.Oracle)
-					continue
-				}
-				log.Error("Failed to retrieve current release", "err", err)
-				continue
-			}
-			// Version was successfully retrieved, notify if newer than ours
-			if version.Major > r.config.Major ||
-				(version.Major == r.config.Major && version.Minor > r.config.Minor) ||
-				(version.Major == r.config.Major && version.Minor == r.config.Minor && version.Patch > r.config.Patch) {
-
-				warning := fmt.Sprintf("Client v%d.%d.%d-%x seems older than the latest upstream release v%d.%d.%d-%x",
-					r.config.Major, r.config.Minor, r.config.Patch, r.config.Commit[:4], version.Major, version.Minor, version.Patch, version.Commit[:4])
-				howtofix := fmt.Sprintf("Please check https://github.com/ubiq/go-ubiq/releases for new releases")
-				separator := strings.Repeat("-", len(warning))
-
-				log.Warn(separator)
-				log.Warn(warning)
-				log.Warn(howtofix)
-				log.Warn(separator)
-			} else {
-				log.Debug("Client seems up to date with upstream",
-					"local", fmt.Sprintf("v%d.%d.%d-%x", r.config.Major, r.config.Minor, r.config.Patch, r.config.Commit[:4]),
-					"upstream", fmt.Sprintf("v%d.%d.%d-%x", version.Major, version.Minor, version.Patch, version.Commit[:4]))
-			}
-
-		// If termination was requested, return
+			r.checkVersion()
 		case errc := <-r.quit:
 			errc <- nil
 			return
 		}
+	}
+}
+
+func (r *ReleaseService) checkVersion() {
+	// Retrieve the current version, and handle missing contracts gracefully
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	opts := &bind.CallOpts{Context: ctx}
+	defer cancel()
+
+	version, err := r.oracle.CurrentVersion(opts)
+	if err != nil {
+		if err == bind.ErrNoCode {
+			log.Debug("Release oracle not found", "contract", r.config.Oracle)
+		} else {
+			log.Error("Failed to retrieve current release", "err", err)
+		}
+		return
+	}
+	// Version was successfully retrieved, notify if newer than ours
+	if version.Major > r.config.Major ||
+		(version.Major == r.config.Major && version.Minor > r.config.Minor) ||
+		(version.Major == r.config.Major && version.Minor == r.config.Minor && version.Patch > r.config.Patch) {
+
+		warning := fmt.Sprintf("Client v%d.%d.%d-%x seems older than the latest upstream release v%d.%d.%d-%x",
+			r.config.Major, r.config.Minor, r.config.Patch, r.config.Commit[:4], version.Major, version.Minor, version.Patch, version.Commit[:4])
+		howtofix := fmt.Sprintf("Please check https://github.com/ubiq/go-ubiq/releases for new releases")
+		separator := strings.Repeat("-", len(warning))
+
+		log.Warn(separator)
+		log.Warn(warning)
+		log.Warn(howtofix)
+		log.Warn(separator)
+	} else {
+		log.Debug("Client seems up to date with upstream",
+			"local", fmt.Sprintf("v%d.%d.%d-%x", r.config.Major, r.config.Minor, r.config.Patch, r.config.Commit[:4]),
+			"upstream", fmt.Sprintf("v%d.%d.%d-%x", version.Major, version.Minor, version.Patch, version.Commit[:4]))
 	}
 }

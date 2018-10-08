@@ -21,17 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ubiq/go-ubiq/common"
+	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/eth"
 	"github.com/ubiq/go-ubiq/internal/jsre"
 	"github.com/ubiq/go-ubiq/node"
-	"github.com/ubiq/go-ubiq/params"
 )
 
 const (
@@ -97,15 +96,15 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		t.Fatalf("failed to create node: %v", err)
 	}
 	ethConf := &eth.Config{
-		ChainConfig: &params.ChainConfig{ChainId: new(big.Int)},
-		Etherbase:   common.HexToAddress(testAddress),
-		PowTest:     true,
+		Genesis:   core.DevGenesisBlock(),
+		Etherbase: common.HexToAddress(testAddress),
+		PowTest:   true,
 	}
 	if confOverride != nil {
 		confOverride(ethConf)
 	}
 	if err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) { return eth.New(ctx, ethConf) }); err != nil {
-		t.Fatalf("failed to register Ethereum protocol: %v", err)
+		t.Fatalf("failed to register Ubiq protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
 	if err = stack.Start(); err != nil {

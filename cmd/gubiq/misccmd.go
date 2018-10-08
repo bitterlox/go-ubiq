@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/ethash"
 	"github.com/ubiq/go-ubiq/cmd/utils"
 	"github.com/ubiq/go-ubiq/eth"
 	"github.com/ubiq/go-ubiq/params"
+	"github.com/ubiq/go-ubiq/pow"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -87,7 +87,7 @@ func makedag(ctx *cli.Context) error {
 				utils.Fatalf("Can't find dir")
 			}
 			fmt.Println("making DAG, this could take awhile...")
-			ethash.MakeDAG(blockNum, dir)
+			pow.MakeDataset(blockNum, dir)
 		}
 	default:
 		wrongArgs()
