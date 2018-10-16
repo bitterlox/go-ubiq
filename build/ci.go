@@ -32,6 +32,7 @@ Available commands are:
    aar        [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an Android archive
    xcode      [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an iOS XCode framework
    xgo        [ -alltools ] [ options ]                                                        -- cross builds according to options
+   purge      [ -store blobstore ] [ -days threshold ]                                         -- purges old archives from the blobstore
 
 For all commands, -n prevents execution of external programs (dry run mode).
 
@@ -73,42 +74,47 @@ var (
 		executablePath("bootnode"),
 		executablePath("evm"),
 		executablePath("gubiq"),
-		executablePath("swarm"),
+		executablePath("puppeth"),
 		executablePath("rlpdump"),
+		executablePath("swarm"),
 	}
 
 	// A debian package is created for all executables listed here.
 	debExecutables = []debExecutable{
 		{
-			Name:        "gubiq",
-			Description: "Ubiq CLI client.",
+			Name:        "abigen",
+			Description: "Source code generator to convert Ubiq contract definitions into easy to use, compile-time type-safe Go packages.",
 		},
 		{
 			Name:        "bootnode",
 			Description: "Ubiq bootnode.",
 		},
 		{
-			Name:        "rlpdump",
-			Description: "Developer utility tool that prints RLP structures.",
-		},
-		{
 			Name:        "evm",
 			Description: "Developer utility version of the EVM (Ethereum Virtual Machine) that is capable of running bytecode snippets within a configurable environment and execution mode.",
 		},
 		{
-			Name:        "swarm",
-			Description: "Ubiq Swarm daemon and tools",
+			Name:        "gubiq",
+			Description: "Ubiq CLI client.",
 		},
 		{
-			Name:        "abigen",
-			Description: "Source code generator to convert Ethereum contract definitions into easy to use, compile-time type-safe Go packages.",
+			Name:        "puppeth",
+			Description: "Ubiq private network manager.",
+		},
+		{
+			Name:        "rlpdump",
+			Description: "Developer utility tool that prints RLP structures.",
+		},
+		{
+			Name:        "swarm",
+			Description: "Ubiq Swarm daemon and tools",
 		},
 	}
 
 	// Distros for which packages are created.
 	// Note: vivid is unsupported because there is no golang-1.6 package for it.
 	// Note: wily is unsupported because it was officially deprecated on lanchpad.
-	debDistros = []string{"trusty", "xenial", "yakkety"}
+	debDistros = []string{"trusty", "xenial", "yakkety", "zesty"}
 )
 
 var GOBIN, _ = filepath.Abs(filepath.Join("build", "bin"))
@@ -146,6 +152,8 @@ func main() {
 		doXCodeFramework(os.Args[2:])
 	case "xgo":
 		doXgo(os.Args[2:])
+	case "purge":
+		doPurge(os.Args[2:])
 	default:
 		log.Fatal("unknown command ", os.Args[1])
 	}
@@ -169,7 +177,7 @@ func doInstall(cmdline []string) {
 
 		if minor < 7 {
 			log.Println("You have Go version", runtime.Version())
-			log.Println("go-ethereum requires at least Go version 1.7 and cannot")
+			log.Println("go-ubiq requires at least Go version 1.7 and cannot")
 			log.Println("be compiled with an earlier version. Please upgrade your Go installation.")
 			os.Exit(1)
 		}
@@ -434,6 +442,10 @@ func archiveUpload(archive string, blobstore string, signer string) error {
 func maybeSkipArchive(env build.Environment) {
 	if env.IsPullRequest {
 		log.Printf("skipping because this is a PR build")
+		os.Exit(0)
+	}
+	if env.IsCronJob {
+		log.Printf("skipping because this is a cron job")
 		os.Exit(0)
 	}
 	if env.Branch != "master" && !strings.HasPrefix(env.Tag, "v1.") {
@@ -960,4 +972,63 @@ func xgoTool(args []string) *exec.Cmd {
 		cmd.Env = append(cmd.Env, e)
 	}
 	return cmd
+}
+
+// Binary distribution cleanups
+
+func doPurge(cmdline []string) {
+	var (
+		store = flag.String("store", "", `Destination from where to purge archives (usually "gethstore/builds")`)
+		limit = flag.Int("days", 30, `Age threshold above which to delete unstalbe archives`)
+	)
+	flag.CommandLine.Parse(cmdline)
+
+	if env := build.Env(); !env.IsCronJob {
+		log.Printf("skipping because not a cron job")
+		os.Exit(0)
+	}
+	// Create the azure authentication and list the current archives
+	auth := build.AzureBlobstoreConfig{
+		Account:   strings.Split(*store, "/")[0],
+		Token:     os.Getenv("AZURE_BLOBSTORE_TOKEN"),
+		Container: strings.SplitN(*store, "/", 2)[1],
+	}
+	blobs, err := build.AzureBlobstoreList(auth)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Iterate over the blobs, collect and sort all unstable builds
+	for i := 0; i < len(blobs); i++ {
+		if !strings.Contains(blobs[i].Name, "unstable") {
+			blobs = append(blobs[:i], blobs[i+1:]...)
+			i--
+		}
+	}
+	for i := 0; i < len(blobs); i++ {
+		for j := i + 1; j < len(blobs); j++ {
+			iTime, err := time.Parse(time.RFC1123, blobs[i].Properties.LastModified)
+			if err != nil {
+				log.Fatal(err)
+			}
+			jTime, err := time.Parse(time.RFC1123, blobs[j].Properties.LastModified)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if iTime.After(jTime) {
+				blobs[i], blobs[j] = blobs[j], blobs[i]
+			}
+		}
+	}
+	// Filter out all archives more recent that the given threshold
+	for i, blob := range blobs {
+		timestamp, _ := time.Parse(time.RFC1123, blob.Properties.LastModified)
+		if time.Since(timestamp) < time.Duration(*limit)*24*time.Hour {
+			blobs = blobs[:i]
+			break
+		}
+	}
+	// Delete all marked as such and return
+	if err := build.AzureBlobstoreDelete(auth, blobs); err != nil {
+		log.Fatal(err)
+	}
 }

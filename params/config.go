@@ -25,12 +25,14 @@ import (
 var MainnetChainConfig = &ChainConfig{
 	ChainId:     MainNetChainID,
 	EIP155Block: MainNetSpuriousDragon,
+	Ethash:      new(EthashConfig),
 }
 
 // TestnetChainConfig is the chain parameters to run a node on the test network.
 var TestnetChainConfig = &ChainConfig{
 	ChainId:     big.NewInt(9),
 	EIP155Block: big.NewInt(10),
+	Ethash:      new(EthashConfig),
 }
 
 // AllProtocolChanges contains every protocol change (EIPs)
@@ -41,8 +43,8 @@ var TestnetChainConfig = &ChainConfig{
 // means that all fields must be set at all times. This forces
 // anyone adding flags to the config to also have to set these
 // fields.
-var AllProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0)}
-var TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0)}
+var AllProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), new(EthashConfig), nil}
+var TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), new(EthashConfig), nil}
 
 // ChainConfig is the core config which determines the blockchain settings.
 //
@@ -53,13 +55,46 @@ type ChainConfig struct {
 	ChainId *big.Int `json:"chainId"` // Chain id identifies the current chain and is used for replay protection
 
 	EIP155Block *big.Int `json:"eip155Block"` // EIP155 HF block
+
+	// Various consensus engines
+	Ethash *EthashConfig `json:"ethash,omitempty"`
+	Clique *CliqueConfig `json:"clique,omitempty"`
+}
+
+// EthashConfig is the consensus engine configs for proof-of-work based sealing.
+type EthashConfig struct{}
+
+// String implements the stringer interface, returning the consensus engine details.
+func (c *EthashConfig) String() string {
+	return "ethash"
+}
+
+// CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
+type CliqueConfig struct {
+	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
+	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+}
+
+// String implements the stringer interface, returning the consensus engine details.
+func (c *CliqueConfig) String() string {
+	return "clique"
 }
 
 // String implements the fmt.Stringer interface.
 func (c *ChainConfig) String() string {
-	return fmt.Sprintf("{ChainID: %v EIP155: %v}",
+	var engine interface{}
+	switch {
+	case c.Ethash != nil:
+		engine = c.Ethash
+	case c.Clique != nil:
+		engine = c.Clique
+	default:
+		engine = "unknown"
+	}
+	return fmt.Sprintf("{ChainID: %v EIP155: %v Engine: %v}",
 		c.ChainId,
 		c.EIP155Block,
+		engine,
 	)
 }
 

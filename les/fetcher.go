@@ -24,6 +24,7 @@ import (
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/common/mclock"
+	"github.com/ubiq/go-ubiq/consensus"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/types"
 	"github.com/ubiq/go-ubiq/light"
@@ -498,7 +499,7 @@ func (f *lightFetcher) processResponse(req fetchRequest, resp fetchResponse) boo
 		headers[int(req.amount)-1-i] = header
 	}
 	if _, err := f.chain.InsertHeaderChain(headers, 1); err != nil {
-		if err == core.BlockFutureErr {
+		if err == consensus.ErrFutureBlock {
 			return true
 		}
 		log.Debug("Failed to insert header chain", "err", err)

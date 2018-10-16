@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-
 	"strings"
 
 	"github.com/ubiq/go-ubiq/core/asm"

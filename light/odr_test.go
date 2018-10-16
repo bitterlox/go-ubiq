@@ -26,6 +26,7 @@ import (
 
 	"github.com/ubiq/go-ubiq/common"
 	"github.com/ubiq/go-ubiq/common/math"
+	"github.com/ubiq/go-ubiq/consensus/ethash"
 	"github.com/ubiq/go-ubiq/core"
 	"github.com/ubiq/go-ubiq/core/state"
 	"github.com/ubiq/go-ubiq/core/types"
@@ -34,7 +35,6 @@ import (
 	"github.com/ubiq/go-ubiq/ethdb"
 	"github.com/ubiq/go-ubiq/event"
 	"github.com/ubiq/go-ubiq/params"
-	"github.com/ubiq/go-ubiq/pow"
 	"github.com/ubiq/go-ubiq/rlp"
 	"github.com/ubiq/go-ubiq/trie"
 )
@@ -175,7 +175,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain
 
 				msg := callmsg{types.NewMessage(from.Address(), &testContractAddr, 0, new(big.Int), big.NewInt(1000000), new(big.Int), data, false)}
 
-				context := core.NewEVMContext(msg, header, bc)
+				context := core.NewEVMContext(msg, header, bc, nil)
 				vmenv := vm.NewEVM(context, statedb, config, vm.Config{})
 
 				gp := new(core.GasPool).AddGas(math.MaxBig256)
@@ -191,7 +191,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain
 				from.SetBalance(math.MaxBig256)
 
 				msg := callmsg{types.NewMessage(from.Address(), &testContractAddr, 0, new(big.Int), big.NewInt(1000000), new(big.Int), data, false)}
-				context := core.NewEVMContext(msg, header, lc)
+				context := core.NewEVMContext(msg, header, lc, nil)
 				vmenv := vm.NewEVM(context, vmstate, config, vm.Config{})
 				gp := new(core.GasPool).AddGas(math.MaxBig256)
 				ret, _, _ := core.ApplyMessage(vmenv, msg, gp)
@@ -248,7 +248,6 @@ func testChainGen(i int, block *core.BlockGen) {
 func testChainOdr(t *testing.T, protocol int, expFail uint64, fn odrTestFn) {
 	var (
 		evmux   = new(event.TypeMux)
-		pow     = new(pow.FakePow)
 		sdb, _  = ethdb.NewMemDatabase()
 		ldb, _  = ethdb.NewMemDatabase()
 		gspec   = core.Genesis{Alloc: core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}}}
@@ -256,16 +255,14 @@ func testChainOdr(t *testing.T, protocol int, expFail uint64, fn odrTestFn) {
 	)
 	gspec.MustCommit(ldb)
 	// Assemble the test environment
-	blockchain, _ := core.NewBlockChain(sdb, testChainConfig(), pow, evmux, vm.Config{})
-	chainConfig := &params.ChainConfig{}
-	gchain, _ := core.GenerateChain(chainConfig, genesis, sdb, 4, testChainGen)
+	blockchain, _ := core.NewBlockChain(sdb, params.TestChainConfig, ethash.NewFullFaker(), evmux, vm.Config{})
+	gchain, _ := core.GenerateChain(params.TestChainConfig, genesis, sdb, 4, testChainGen)
 	if _, err := blockchain.InsertChain(gchain); err != nil {
 		panic(err)
 	}
 
 	odr := &testOdr{sdb: sdb, ldb: ldb}
-	lightchain, _ := NewLightChain(odr, testChainConfig(), pow, evmux)
-	lightchain.SetValidator(bproc{})
+	lightchain, _ := NewLightChain(odr, params.TestChainConfig, ethash.NewFullFaker(), evmux)
 	headers := make([]*types.Header, len(gchain))
 	for i, block := range gchain {
 		headers[i] = block.Header()

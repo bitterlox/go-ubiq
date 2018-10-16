@@ -26,26 +26,10 @@ import (
 	"github.com/ubiq/go-ubiq/params"
 )
 
-// MainnetChainConfig returns the chain configurations for the main Ethereum network.
-func MainnetChainConfig() *ChainConfig {
-	return &ChainConfig{
-		ChainID:     params.MainNetChainID.Int64(),
-		EIP155Block: params.MainNetSpuriousDragon.Int64(),
-	}
-}
-
 // MainnetGenesis returns the JSON spec to use for the main Ethereum network. It
 // is actually empty since that defaults to the hard coded binary genesis block.
 func MainnetGenesis() string {
 	return ""
-}
-
-// TestnetChainConfig returns the chain configurations for the Ethereum test network.
-func TestnetChainConfig() *ChainConfig {
-	return &ChainConfig{
-		ChainID:     params.TestNetChainID.Int64(),
-		EIP155Block: params.TestNetSpuriousDragon.Int64(),
-	}
 }
 
 // TestnetGenesis returns the JSON spec to use for the Ethereum test network.
@@ -55,18 +39,6 @@ func TestnetGenesis() string {
 		panic(err)
 	}
 	return string(enc)
-}
-
-// ChainConfig is the core config which determines the blockchain settings.
-type ChainConfig struct {
-	ChainID     int64 // Chain ID for replay protection
-	EIP155Block int64 // Replay protection switch block
-}
-
-// NewChainConfig creates a new chain configuration that transitions immediately
-// to homestead and has no notion of the DAO fork (ideal for a private network).
-func NewChainConfig() *ChainConfig {
-	return new(ChainConfig)
 }
 
 // FoundationBootnodes returns the enode URLs of the P2P bootstrap nodes operated

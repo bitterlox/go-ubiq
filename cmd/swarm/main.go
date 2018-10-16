@@ -39,19 +39,16 @@ import (
 	"github.com/ubiq/go-ubiq/node"
 	"github.com/ubiq/go-ubiq/p2p"
 	"github.com/ubiq/go-ubiq/p2p/discover"
+	"github.com/ubiq/go-ubiq/params"
 	"github.com/ubiq/go-ubiq/swarm"
 	bzzapi "github.com/ubiq/go-ubiq/swarm/api"
 	"gopkg.in/urfave/cli.v1"
 )
 
-const (
-	clientIdentifier = "swarm"
-	versionString    = "0.2"
-)
+const clientIdentifier = "swarm"
 
 var (
 	gitCommit        string // Git SHA1 commit hash of the release (set via linker flags)
-	app              = utils.NewApp(gitCommit, "Ubiq Swarm")
 	testbetBootNodes = []string{}
 )
 
@@ -106,19 +103,36 @@ var (
 		Name:  "defaultpath",
 		Usage: "path to file served for empty url path (none)",
 	}
+	SwarmUpFromStdinFlag = cli.BoolFlag{
+		Name:  "stdin",
+		Usage: "reads data to be uploaded from stdin",
+	}
+	SwarmUploadMimeType = cli.StringFlag{
+		Name:  "mime",
+		Usage: "force mime type",
+	}
 	CorsStringFlag = cli.StringFlag{
 		Name:  "corsdomain",
 		Usage: "Domain on which to send Access-Control-Allow-Origin header (multiple domains can be supplied separated by a ',')",
 	}
 )
 
-func init() {
-	// Override flag defaults so bzzd can run alongside gubiq.
-	utils.ListenPortFlag.Value = 30399
-	utils.IPCPathFlag.Value = utils.DirectoryString{Value: "bzzd.ipc"}
-	utils.IPCApiFlag.Value = "admin, bzz, chequebook, debug, rpc, swarmfs, web3"
+var defaultNodeConfig = node.DefaultConfig
 
-	// Set up the cli app.
+// This init function sets defaults so cmd/swarm can run alongside geth.
+func init() {
+	defaultNodeConfig.Name = clientIdentifier
+	defaultNodeConfig.Version = params.VersionWithCommit(gitCommit)
+	defaultNodeConfig.P2P.ListenAddr = ":30399"
+	defaultNodeConfig.IPCPath = "bzzd.ipc"
+	// Set flag defaults for --help display.
+	utils.ListenPortFlag.Value = 30399
+}
+
+var app = utils.NewApp(gitCommit, "Ethereum Swarm")
+
+// This init function creates the cli.App.
+func init() {
 	app.Action = bzzd
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2013-2016 The go-ethereum Authors"
@@ -139,6 +153,15 @@ The output of this command is supposed to be machine-readable.
 			ArgsUsage: " <file>",
 			Description: `
 "upload a file or directory to swarm using the HTTP API and prints the root hash",
+`,
+		},
+		{
+			Action:    list,
+			Name:      "ls",
+			Usage:     "list files and directories contained in a manifest",
+			ArgsUsage: " <manifest> [<prefix>]",
+			Description: `
+Lists files and directories contained in a manifest.
 `,
 		},
 		{
@@ -212,8 +235,8 @@ Cleans database of corrupted entries.
 		utils.MaxPeersFlag,
 		utils.NATFlag,
 		utils.IPCDisabledFlag,
-		utils.IPCApiFlag,
 		utils.IPCPathFlag,
+		utils.PasswordFileFlag,
 		// bzzd-specific flags
 		CorsStringFlag,
 		EthAPIFlag,
@@ -229,6 +252,8 @@ Cleans database of corrupted entries.
 		SwarmRecursiveUploadFlag,
 		SwarmWantManifestFlag,
 		SwarmUploadDefaultPath,
+		SwarmUpFromStdinFlag,
+		SwarmUploadMimeType,
 	}
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Before = func(ctx *cli.Context) error {
@@ -250,7 +275,7 @@ func main() {
 
 func version(ctx *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
-	fmt.Println("Version:", versionString)
+	fmt.Println("Version:", params.Version)
 	if gitCommit != "" {
 		fmt.Println("Git Commit:", gitCommit)
 	}
@@ -263,9 +288,16 @@ func version(ctx *cli.Context) error {
 }
 
 func bzzd(ctx *cli.Context) error {
-	stack := utils.MakeNode(ctx, clientIdentifier, gitCommit)
+	cfg := defaultNodeConfig
+	utils.SetNodeConfig(ctx, &cfg)
+	stack, err := node.New(&cfg)
+	if err != nil {
+		utils.Fatalf("can't create node: %v", err)
+	}
+
 	registerBzzService(ctx, stack)
 	utils.StartNode(stack)
+
 	go func() {
 		sigc := make(chan os.Signal, 1)
 		signal.Notify(sigc, syscall.SIGTERM)
@@ -274,6 +306,7 @@ func bzzd(ctx *cli.Context) error {
 		log.Info("Got sigterm, shutting swarm down...")
 		stack.Stop()
 	}()
+
 	networkId := ctx.GlobalUint64(SwarmNetworkIdFlag.Name)
 	// Add bootnodes as initial peers.
 	if ctx.GlobalIsSet(utils.BootnodesFlag.Name) {
@@ -290,7 +323,6 @@ func bzzd(ctx *cli.Context) error {
 }
 
 func registerBzzService(ctx *cli.Context, stack *node.Node) {
-
 	prvkey := getAccount(ctx, stack)
 
 	chbookaddr := common.HexToAddress(ctx.GlobalString(ChequebookAddrFlag.Name))
@@ -343,10 +375,10 @@ func getAccount(ctx *cli.Context, stack *node.Node) *ecdsa.PrivateKey {
 	am := stack.AccountManager()
 	ks := am.Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
 
-	return decryptStoreAccount(ks, keyid)
+	return decryptStoreAccount(ks, keyid, utils.MakePasswordList(ctx))
 }
 
-func decryptStoreAccount(ks *keystore.KeyStore, account string) *ecdsa.PrivateKey {
+func decryptStoreAccount(ks *keystore.KeyStore, account string, passwords []string) *ecdsa.PrivateKey {
 	var a accounts.Account
 	var err error
 	if common.IsHexAddress(account) {
@@ -367,9 +399,9 @@ func decryptStoreAccount(ks *keystore.KeyStore, account string) *ecdsa.PrivateKe
 	if err != nil {
 		utils.Fatalf("Can't load swarm account key: %v", err)
 	}
-	for i := 1; i <= 3; i++ {
-		passphrase := promptPassphrase(fmt.Sprintf("Unlocking swarm account %s [%d/3]", a.Address.Hex(), i))
-		key, err := keystore.DecryptKey(keyjson, passphrase)
+	for i := 0; i < 3; i++ {
+		password := getPassPhrase(fmt.Sprintf("Unlocking swarm account %s [%d/3]", a.Address.Hex(), i+1), i, passwords)
+		key, err := keystore.DecryptKey(keyjson, password)
 		if err == nil {
 			return key.PrivateKey
 		}
@@ -378,7 +410,18 @@ func decryptStoreAccount(ks *keystore.KeyStore, account string) *ecdsa.PrivateKe
 	return nil
 }
 
-func promptPassphrase(prompt string) string {
+// getPassPhrase retrieves the password associated with bzz account, either by fetching
+// from a list of pre-loaded passwords, or by requesting it interactively from user.
+func getPassPhrase(prompt string, i int, passwords []string) string {
+	// non-interactive
+	if len(passwords) > 0 {
+		if i < len(passwords) {
+			return passwords[i]
+		}
+		return passwords[len(passwords)-1]
+	}
+
+	// fallback to interactive mode
 	if prompt != "" {
 		fmt.Println(prompt)
 	}

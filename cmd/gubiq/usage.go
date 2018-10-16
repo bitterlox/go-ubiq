@@ -115,7 +115,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.WSApiFlag,
 			utils.WSAllowedOriginsFlag,
 			utils.IPCDisabledFlag,
-			utils.IPCApiFlag,
 			utils.IPCPathFlag,
 			utils.RPCCORSDomainFlag,
 			utils.JSpathFlag,
@@ -151,20 +150,13 @@ var AppHelpFlagGroups = []flagGroup{
 	{
 		Name: "GAS PRICE ORACLE",
 		Flags: []cli.Flag{
-			utils.GpoMinGasPriceFlag,
-			utils.GpoMaxGasPriceFlag,
-			utils.GpoFullBlockRatioFlag,
-			utils.GpobaseStepDownFlag,
-			utils.GpobaseStepUpFlag,
-			utils.GpobaseCorrectionFactorFlag,
+			utils.GpoBlocksFlag,
+			utils.GpoPercentileFlag,
 		},
 	},
 	{
 		Name: "VIRTUAL MACHINE",
 		Flags: []cli.Flag{
-			utils.VMEnableJitFlag,
-			utils.VMForceJitFlag,
-			utils.VMJitCacheFlag,
 			utils.VMEnableDebugFlag,
 		},
 	},
