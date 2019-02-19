@@ -82,6 +82,9 @@ type Config struct {
 	// scrypt KDF at the expense of security.
 	UseLightweightKDF bool `toml:",omitempty"`
 
+	// NoUSB disables hardware wallet monitoring and connectivity.
+	NoUSB bool `toml:",omitempty"`
+
 	// IPCPath is the requested location to place the IPC endpoint. If the path is
 	// a simple file name, it is placed inside the data directory (or on the root
 	// pipe path on Windows), whereas if it's a resolvable path name (absolute or
@@ -100,7 +103,7 @@ type Config struct {
 	// HTTPCors is the Cross-Origin Resource Sharing header to send to requesting
 	// clients. Please be aware that CORS is a browser enforced security, it's fully
 	// useless for custom HTTP clients.
-	HTTPCors string `toml:",omitempty"`
+	HTTPCors []string `toml:",omitempty"`
 
 	// HTTPModules is a list of API modules to expose via the HTTP RPC interface.
 	// If the module list is empty, all RPC API endpoints designated public will be
@@ -119,7 +122,7 @@ type Config struct {
 	// WSOrigins is the list of domain to accept websocket requests from. Please be
 	// aware that the server can only act upon the HTTP request the client sends and
 	// cannot verify the validity of the request header.
-	WSOrigins string `toml:",omitempty"`
+	WSOrigins []string `toml:",omitempty"`
 
 	// WSModules is a list of API modules to expose via the websocket RPC interface.
 	// If the module list is empty, all RPC API endpoints designated public will be
@@ -389,10 +392,12 @@ func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 	backends := []accounts.Backend{
 		keystore.NewKeyStore(keydir, scryptN, scryptP),
 	}
-	if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
-		log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
-	} else {
-		backends = append(backends, ledgerhub)
+	if !conf.NoUSB {
+		if ledgerhub, err := usbwallet.NewLedgerHub(); err != nil {
+			log.Warn(fmt.Sprintf("Failed to start Ledger hub, disabling: %v", err))
+		} else {
+			backends = append(backends, ledgerhub)
+		}
 	}
 	return accounts.NewManager(backends...), ephemeral, nil
 }

@@ -18,6 +18,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,13 +30,8 @@ import (
 	"path/filepath"
 	"strings"
 
-<<<<<<< HEAD
 	"github.com/ubiq/go-ubiq/cmd/utils"
-	"github.com/ubiq/go-ubiq/log"
-=======
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	swarm "github.com/ethereum/go-ethereum/swarm/api/client"
->>>>>>> 287049612458c175a5e8609321195573e864a8de
+	swarm "github.com/ubiq/go-ubiq/swarm/api/client"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -92,24 +88,32 @@ func upload(ctx *cli.Context) {
 	if err != nil {
 		utils.Fatalf("Error opening file: %s", err)
 	}
-	var hash string
+
+	// define a function which either uploads a directory or single file
+	// based on the type of the file being uploaded
+	var doUpload func() (hash string, err error)
 	if stat.IsDir() {
-		if !recursive {
-			utils.Fatalf("Argument is a directory and recursive upload is disabled")
+		doUpload = func() (string, error) {
+			if !recursive {
+				return "", errors.New("Argument is a directory and recursive upload is disabled")
+			}
+			return client.UploadDirectory(file, defaultPath, "")
 		}
-		hash, err = client.UploadDirectory(file, defaultPath, "")
 	} else {
-		if mimeType == "" {
-			mimeType = detectMimeType(file)
+		doUpload = func() (string, error) {
+			f, err := swarm.Open(file)
+			if err != nil {
+				return "", fmt.Errorf("error opening file: %s", err)
+			}
+			defer f.Close()
+			if mimeType == "" {
+				mimeType = detectMimeType(file)
+			}
+			f.ContentType = mimeType
+			return client.Upload(f, "")
 		}
-		f, err := swarm.Open(file)
-		if err != nil {
-			utils.Fatalf("Error opening file: %s", err)
-		}
-		defer f.Close()
-		f.ContentType = mimeType
-		hash, err = client.Upload(f, "")
 	}
+	hash, err := doUpload()
 	if err != nil {
 		utils.Fatalf("Upload failed: %s", err)
 	}

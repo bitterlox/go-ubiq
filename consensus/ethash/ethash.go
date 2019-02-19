@@ -130,13 +130,16 @@ func memoryMapAndGenerate(path string, size uint64, generator func(buffer []uint
 	data := buffer[len(dumpMagic):]
 	generator(data)
 
-	if err := mem.Flush(); err != nil {
-		mem.Unmap()
-		dump.Close()
+	if err := mem.Unmap(); err != nil {
 		return nil, nil, nil, err
 	}
-	os.Rename(temp, path)
-	return dump, mem, data, nil
+	if err := dump.Close(); err != nil {
+		return nil, nil, nil, err
+	}
+	if err := os.Rename(temp, path); err != nil {
+		return nil, nil, nil, err
+	}
+	return memoryMap(path)
 }
 
 // cache wraps an ethash cache with some metadata to allow easier concurrent use.
@@ -305,14 +308,14 @@ func (d *dataset) release() {
 
 // MakeCache generates a new ethash cache and optionally stores it to disk.
 func MakeCache(block uint64, dir string) {
-	c := cache{epoch: block/epochLength + 1}
+	c := cache{epoch: block / epochLength}
 	c.generate(dir, math.MaxInt32, false)
 	c.release()
 }
 
 // MakeDataset generates a new ethash dataset and optionally stores it to disk.
 func MakeDataset(block uint64, dir string) {
-	d := dataset{epoch: block/epochLength + 1}
+	d := dataset{epoch: block / epochLength}
 	d.generate(dir, math.MaxInt32, false)
 	d.release()
 }
@@ -352,7 +355,7 @@ type Ethash struct {
 // New creates a full sized ethash PoW scheme.
 func New(cachedir string, cachesinmem, cachesondisk int, dagdir string, dagsinmem, dagsondisk int) *Ethash {
 	if cachesinmem <= 0 {
-		log.Warn("One ethash cache must alwast be in memory", "requested", cachesinmem)
+		log.Warn("One ethash cache must always be in memory", "requested", cachesinmem)
 		cachesinmem = 1
 	}
 	if cachedir != "" && cachesondisk > 0 {
@@ -409,7 +412,7 @@ func NewFakeDelayer(delay time.Duration) *Ethash {
 	return &Ethash{fakeMode: true, fakeDelay: delay}
 }
 
-// NewFullFaker creates a ethash consensus engine with a full fake scheme that
+// NewFullFaker creates an ethash consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
 func NewFullFaker() *Ethash {
 	return &Ethash{fakeMode: true, fakeFull: true}
@@ -464,8 +467,9 @@ func (ethash *Ethash) cache(block uint64) []uint32 {
 			future = &cache{epoch: epoch + 1}
 			ethash.fcache = future
 		}
+		// New current cache, set its initial timestamp
+		current.used = time.Now()
 	}
-	current.used = time.Now()
 	ethash.lock.Unlock()
 
 	// Wait for generation finish, bump the timestamp and finalize the cache
@@ -526,8 +530,9 @@ func (ethash *Ethash) dataset(block uint64) []uint32 {
 			future = &dataset{epoch: epoch + 1}
 			ethash.fdataset = future
 		}
+		// New current dataset, set its initial timestamp
+		current.used = time.Now()
 	}
-	current.used = time.Now()
 	ethash.lock.Unlock()
 
 	// Wait for generation finish, bump the timestamp and finalize the cache

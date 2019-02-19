@@ -204,7 +204,7 @@ func (self *SwarmFS) Unmount(mountpoint string) (*MountInfo, error) {
 	}
 	err = fuse.Unmount(cleanedMountPoint)
 	if err != nil {
-		err1 := externalUnMount(cleanedMountPoint)
+		err1 := externalUnmount(cleanedMountPoint)
 		if err1 != nil {
 			errStr := fmt.Sprintf("UnMount error: %v", err)
 			log.Warn(errStr)

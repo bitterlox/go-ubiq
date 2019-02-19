@@ -15,7 +15,7 @@ import (
 func (c Config) MarshalTOML() (interface{}, error) {
 	type Config struct {
 		Genesis                 *core.Genesis `toml:",omitempty"`
-		NetworkId               int
+		NetworkId               uint64
 		SyncMode                downloader.SyncMode
 		LightServ               int  `toml:",omitempty"`
 		LightPeers              int  `toml:",omitempty"`
@@ -33,9 +33,9 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		EthashDatasetDir        string
 		EthashDatasetsInMem     int
 		EthashDatasetsOnDisk    int
+		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
-		SolcPath                string
 		DocRoot                 string `toml:"-"`
 		PowFake                 bool   `toml:"-"`
 		PowTest                 bool   `toml:"-"`
@@ -61,9 +61,9 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.EthashDatasetDir = c.EthashDatasetDir
 	enc.EthashDatasetsInMem = c.EthashDatasetsInMem
 	enc.EthashDatasetsOnDisk = c.EthashDatasetsOnDisk
+	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
 	enc.EnablePreimageRecording = c.EnablePreimageRecording
-	enc.SolcPath = c.SolcPath
 	enc.DocRoot = c.DocRoot
 	enc.PowFake = c.PowFake
 	enc.PowTest = c.PowTest
@@ -74,7 +74,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	type Config struct {
 		Genesis                 *core.Genesis `toml:",omitempty"`
-		NetworkId               *int
+		NetworkId               *uint64
 		SyncMode                *downloader.SyncMode
 		LightServ               *int  `toml:",omitempty"`
 		LightPeers              *int  `toml:",omitempty"`
@@ -92,9 +92,9 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		EthashDatasetDir        *string
 		EthashDatasetsInMem     *int
 		EthashDatasetsOnDisk    *int
+		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
-		SolcPath                *string
 		DocRoot                 *string `toml:"-"`
 		PowFake                 *bool   `toml:"-"`
 		PowTest                 *bool   `toml:"-"`
@@ -161,14 +161,14 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.EthashDatasetsOnDisk != nil {
 		c.EthashDatasetsOnDisk = *dec.EthashDatasetsOnDisk
 	}
+	if dec.TxPool != nil {
+		c.TxPool = *dec.TxPool
+	}
 	if dec.GPO != nil {
 		c.GPO = *dec.GPO
 	}
 	if dec.EnablePreimageRecording != nil {
 		c.EnablePreimageRecording = *dec.EnablePreimageRecording
-	}
-	if dec.SolcPath != nil {
-		c.SolcPath = *dec.SolcPath
 	}
 	if dec.DocRoot != nil {
 		c.DocRoot = *dec.DocRoot

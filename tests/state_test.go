@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -17,197 +17,72 @@
 package tests
 
 import (
-	"math/big"
-	"os"
-	"path/filepath"
+	"bytes"
+	"fmt"
+	"reflect"
 	"testing"
 
-	"github.com/ubiq/go-ubiq/params"
+	"github.com/ubiq/go-ubiq/core/vm"
 )
 
-func BenchmarkStateCall1024(b *testing.B) {
-	fn := filepath.Join(stateTestDir, "stCallCreateCallCodeTest.json")
-	if err := BenchVmTest(fn, bconf{"Call1024BalanceTooLow", true, os.Getenv("JITVM") == "true"}, b); err != nil {
-		b.Error(err)
-	}
-}
+func TestState(t *testing.T) {
+	t.Parallel()
 
-func TestStateSystemOperations(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
+	st := new(testMatcher)
+	// Long tests:
+	st.skipShortMode(`^stQuadraticComplexityTest/`)
+	// Broken tests:
+	st.skipLoad(`^stTransactionTest/OverflowGasRequire\.json`) // gasLimit > 256 bits
+	st.skipLoad(`^stStackTests/shallowStackOK\.json`)          // bad hex encoding
+	st.skipLoad(`^stTransactionTest/zeroSigTransa[^/]*\.json`) // EIP-86 is not supported yet
+	// Expected failures:
+	st.fails(`^stCallCreateCallCodeTest/createJS_ExampleContract\.json`, "bug in test")
+	st.fails(`^stCodeSizeLimit/codesizeOOGInvalidSize\.json/(Frontier|Homestead)`,
+		"code size limit implementation is not conditional on fork")
+	st.fails(`^stRevertTest/RevertDepthCreateAddressCollision\.json/EIP15[08]/[67]`, "bug in test")
+	st.fails(`^stRevertTest/RevertPrecompiledTouch\.json/EIP158`, "bug in test")
+	st.fails(`^stRevertTest/RevertPrefoundEmptyOOG\.json/EIP158`, "bug in test")
 
-	fn := filepath.Join(stateTestDir, "stSystemOperationsTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateExample(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stExample.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStatePreCompiledContracts(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stPreCompiledContracts.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateRecursiveCreate(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stRecursiveCreate.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateSpecial(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stSpecialTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateRefund(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stRefundTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateBlockHash(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stBlockHashTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateInitCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stInitCodeTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateLog(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stLogTests.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateTransaction(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stTransactionTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateTransition(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stTransitionTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCallCreateCallCode(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stCallCreateCallCodeTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCallCodes(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stCallCodes.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestMemory(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stMemoryTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestMemoryStress(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	if os.Getenv("TEST_VM_COMPLEX") == "" {
-		t.Skip()
-	}
-	fn := filepath.Join(stateTestDir, "stMemoryStressTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestQuadraticComplexity(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	if os.Getenv("TEST_VM_COMPLEX") == "" {
-		t.Skip()
-	}
-	fn := filepath.Join(stateTestDir, "stQuadraticComplexityTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSolidity(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stSolidityTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestWallet(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fn := filepath.Join(stateTestDir, "stWalletTest.json")
-	if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestStateTestsRandom(t *testing.T) {
-	chainConfig := &params.ChainConfig{}
-
-	fns, _ := filepath.Glob("./files/StateTests/RandomTests/*")
-	for _, fn := range fns {
-		t.Log("running:", fn)
-		if err := RunStateTest(chainConfig, fn, StateSkipTests); err != nil {
-			t.Error(fn, err)
+	st.walk(t, stateTestDir, func(t *testing.T, name string, test *StateTest) {
+		for _, subtest := range test.Subtests() {
+			subtest := subtest
+			key := fmt.Sprintf("%s/%d", subtest.Fork, subtest.Index)
+			name := name + "/" + key
+			t.Run(key, func(t *testing.T) {
+				if subtest.Fork == "Metropolis" {
+					t.Skip("metropolis not supported yet")
+				}
+				withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
+					return st.checkFailure(t, name, test.Run(subtest, vmconfig))
+				})
+			})
 		}
+	})
+}
+
+// Transactions with gasLimit above this value will not get a VM trace on failure.
+const traceErrorLimit = 400000
+
+func withTrace(t *testing.T, gasLimit uint64, test func(vm.Config) error) {
+	err := test(vm.Config{})
+	if err == nil {
+		return
+	}
+	t.Error(err)
+	if gasLimit > traceErrorLimit {
+		t.Log("gas limit too high for EVM trace")
+		return
+	}
+	tracer := vm.NewStructLogger(nil)
+	err2 := test(vm.Config{Debug: true, Tracer: tracer})
+	if !reflect.DeepEqual(err, err2) {
+		t.Errorf("different error for second run: %v", err2)
+	}
+	buf := new(bytes.Buffer)
+	vm.WriteTrace(buf, tracer.StructLogs())
+	if buf.Len() == 0 {
+		t.Log("no EVM operation logs generated")
+	} else {
+		t.Log("EVM operation log:\n" + buf.String())
 	}
 }

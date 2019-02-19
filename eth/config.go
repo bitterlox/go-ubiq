@@ -1,4 +1,4 @@
-// Copyright 2014 The go-ethereum Authors
+// Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -34,6 +34,7 @@ import (
 // DefaultConfig contains default settings for use on the Ethereum main net.
 var DefaultConfig = Config{
 	SyncMode:             downloader.FullSync,
+	EthashCacheDir:       "ubqhash",
 	EthashCachesInMem:    2,
 	EthashCachesOnDisk:   3,
 	EthashDatasetsInMem:  1,
@@ -41,8 +42,9 @@ var DefaultConfig = Config{
 	NetworkId:            88,
 	LightPeers:           20,
 	DatabaseCache:        128,
-	GasPrice:             big.NewInt(20 * params.Shannon),
+	GasPrice:             big.NewInt(18 * params.Shannon),
 
+	TxPool: core.DefaultTxPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     10,
 		Percentile: 50,
@@ -57,9 +59,9 @@ func init() {
 		}
 	}
 	if runtime.GOOS == "windows" {
-		DefaultConfig.EthashDatasetDir = filepath.Join(home, "AppData", "Ethash")
+		DefaultConfig.EthashDatasetDir = filepath.Join(home, "AppData", "Ubqhash")
 	} else {
-		DefaultConfig.EthashDatasetDir = filepath.Join(home, ".ethash")
+		DefaultConfig.EthashDatasetDir = filepath.Join(home, ".ubqhash")
 	}
 }
 
@@ -71,7 +73,7 @@ type Config struct {
 	Genesis *core.Genesis `toml:",omitempty"`
 
 	// Protocol options
-	NetworkId int // Network ID to use for selecting peers to connect to
+	NetworkId uint64 // Network ID to use for selecting peers to connect to
 	SyncMode  downloader.SyncMode
 
 	// Light client options
@@ -98,6 +100,9 @@ type Config struct {
 	EthashDatasetsInMem  int
 	EthashDatasetsOnDisk int
 
+	// Transaction pool options
+	TxPool core.TxPoolConfig
+
 	// Gas Price Oracle options
 	GPO gasprice.Config
 
@@ -105,7 +110,6 @@ type Config struct {
 	EnablePreimageRecording bool
 
 	// Miscellaneous options
-	SolcPath  string
 	DocRoot   string `toml:"-"`
 	PowFake   bool   `toml:"-"`
 	PowTest   bool   `toml:"-"`

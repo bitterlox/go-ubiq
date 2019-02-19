@@ -99,4 +99,32 @@ func TestBzzrGetPath(t *testing.T) {
 		}
 	}
 
+	nonhashtests := []string{
+		srv.URL + "/bzz:/name",
+		srv.URL + "/bzzi:/nonhash",
+		srv.URL + "/bzzr:/nonhash",
+	}
+
+	nonhashresponses := []string{
+		"error resolving name: no DNS to resolve name: \"name\"\n",
+		"error resolving nonhash: immutable address not a content hash: \"nonhash\"\n",
+		"error resolving nonhash: no DNS to resolve name: \"nonhash\"\n",
+	}
+
+	for i, url := range nonhashtests {
+		var resp *http.Response
+		var respbody []byte
+
+		resp, err = http.Get(url)
+
+		if err != nil {
+			t.Fatalf("Request failed: %v", err)
+		}
+		defer resp.Body.Close()
+		respbody, err = ioutil.ReadAll(resp.Body)
+		if string(respbody) != nonhashresponses[i] {
+			t.Fatalf("Non-Hash response body does not match, expected: %v, got: %v", nonhashresponses[i], string(respbody))
+		}
+	}
+
 }

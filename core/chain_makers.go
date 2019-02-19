@@ -83,7 +83,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	b.statedb.StartRecord(tx.Hash(), common.Hash{}, len(b.txs))
+	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 	receipt, _, err := ApplyTransaction(b.config, nil, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
@@ -97,10 +97,10 @@ func (b *BlockGen) Number() *big.Int {
 	return new(big.Int).Set(b.header.Number)
 }
 
-// AddUncheckedReceipts forcefully adds a receipts to the block without a
+// AddUncheckedReceipt forcefully adds a receipts to the block without a
 // backing transaction.
 //
-// AddUncheckedReceipts will cause consensus failures when used during real
+// AddUncheckedReceipt will cause consensus failures when used during real
 // chain processing. This is best used in conjunction with raw block insertion.
 func (b *BlockGen) AddUncheckedReceipt(receipt *types.Receipt) {
 	b.receipts = append(b.receipts, receipt)
@@ -169,7 +169,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 			gen(i, b)
 		}
 		ethash.AccumulateRewards(statedb, h, b.uncles)
-		root, err := statedb.Commit(true)
+		root, err := statedb.CommitTo(db, config.IsEIP158(h.Number))
 		if err != nil {
 			panic(fmt.Sprintf("state write error: %v", err))
 		}
@@ -177,7 +177,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 		return types.NewBlock(h, b.txs, b.uncles, b.receipts), b.receipts
 	}
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), db)
+		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
 		if err != nil {
 			panic(err)
 		}
@@ -197,6 +197,7 @@ func makeHeader(config *params.ChainConfig, parent *types.Block, state *state.St
 	} else {
 		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 	}
+
 	return &types.Header{
 		Root:       state.IntermediateRoot(true),
 		ParentHash: parent.Hash(),

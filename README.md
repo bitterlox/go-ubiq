@@ -66,7 +66,7 @@ This command will:
    (via the trailing `console` subcommand) through which you can invoke all official [`web3` methods](https://github.com/ethereum/wiki/wiki/JavaScript-API)
    as well as Gubiq's own [management APIs](https://github.com/ethereum/go-ethereum/wiki/Management-APIs).
    This too is optional and if you leave it out you can always attach to an already running Gubiq instance
-   with `gubiq --attach`.
+   with `gubiq attach`.
 
 ### Full node on the Ubiq test network
 
@@ -80,7 +80,7 @@ $ gubiq --testnet --fast --cache=512 console
 ```
 
 The `--fast`, `--cache` flags and `console` subcommand have the exact same meaning as above and they
-are equially useful on the testnet too. Please see above for their explanations if you've skipped to
+are equally useful on the testnet too. Please see above for their explanations if you've skipped to
 here.
 
 Specifying the `--testnet` flag however will reconfigure your Gubiq instance a bit:
@@ -91,10 +91,25 @@ Specifying the `--testnet` flag however will reconfigure your Gubiq instance a b
    which uses different P2P bootnodes, different network IDs and genesis states.
 
 *Note: Although there are some internal protective measures to prevent transactions from crossing
-over between the main network and test network (different starting nonces), you should make sure to
-always use separate accounts for play-money and real-money. Unless you manually move accounts, Gubiq
-will by default correctly separate the two networks and will not make any accounts available between
-them.*
+over between the main network and test network, you should make sure to always use separate accounts
+for play-money and real-money. Unless you manually move accounts, Gubiq will by default correctly
+separate the two networks and will not make any accounts available between them.*
+
+### Configuration
+
+As an alternative to passing the numerous flags to the `gubiq` binary, you can also pass a configuration file via:
+
+```
+$ gubiq --config /path/to/your_config.toml
+```
+
+To get an idea how the file should look like you can use the `dumpconfig` subcommand to export your existing configuration:
+
+```
+$ gubiq --your-favourite-flags dumpconfig
+```
+
+*Note: This works only with gubiq v2.1.0 and above*
 
 #### Docker quick start
 
@@ -157,6 +172,12 @@ and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`)
 
 ```json
 {
+  "config": {
+        "chainId": 0,
+        "homesteadBlock": 0,
+        "eip155Block": 0,
+        "eip158Block": 0
+    },
   "alloc"      : {},
   "coinbase"   : "0x0000000000000000000000000000000000000000",
   "difficulty" : "0x20000",

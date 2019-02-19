@@ -17,16 +17,16 @@
 package api
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	"bytes"
+	"mime"
+	"path/filepath"
 	"time"
 
 	"github.com/ubiq/go-ubiq/common"
@@ -84,23 +84,32 @@ type ErrResolve error
 // DNS Resolver
 func (self *Api) Resolve(uri *URI) (storage.Key, error) {
 	log.Trace(fmt.Sprintf("Resolving : %v", uri.Addr))
-	if hashMatcher.MatchString(uri.Addr) {
-		log.Trace(fmt.Sprintf("addr is a hash: %q", uri.Addr))
-		return storage.Key(common.Hex2Bytes(uri.Addr)), nil
-	}
+
+	// if the URI is immutable, check if the address is a hash
+	isHash := hashMatcher.MatchString(uri.Addr)
 	if uri.Immutable() {
-		return nil, errors.New("refusing to resolve immutable address")
+		if !isHash {
+			return nil, fmt.Errorf("immutable address not a content hash: %q", uri.Addr)
+		}
+		return common.Hex2Bytes(uri.Addr), nil
 	}
+
+	// if DNS is not configured, check if the address is a hash
 	if self.dns == nil {
-		return nil, fmt.Errorf("unable to resolve addr %q, resolver not configured", uri.Addr)
+		if !isHash {
+			return nil, fmt.Errorf("no DNS to resolve name: %q", uri.Addr)
+		}
+		return common.Hex2Bytes(uri.Addr), nil
 	}
-	hash, err := self.dns.Resolve(uri.Addr)
-	if err != nil {
-		log.Warn(fmt.Sprintf("DNS error resolving addr %q: %s", uri.Addr, err))
-		return nil, ErrResolve(err)
+
+	// try and resolve the address
+	resolved, err := self.dns.Resolve(uri.Addr)
+	if err == nil {
+		return resolved[:], nil
+	} else if !isHash {
+		return nil, err
 	}
-	log.Trace(fmt.Sprintf("addr lookup: %v -> %v", uri.Addr, hash))
-	return hash[:], nil
+	return common.Hex2Bytes(uri.Addr), nil
 }
 
 // Put provides singleton manifest creation on top of dpa store
